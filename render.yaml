@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: polyphonic-instrument-tagging
+    runtime: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: AUDIOTAG_ENGINE
+        value: onnx

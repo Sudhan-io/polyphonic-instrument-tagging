@@ -15,6 +15,7 @@ backend/app/models/*.keras
 backend/app/models/*.h5
 backend/app/models/*.pt
 backend/app/models/*.onnx
+!backend/app/models/audiotag_model_v1.onnx
 
 # ===============================
 # Audio Files
