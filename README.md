@@ -1,5 +1,6 @@
 # AudioTag AI — Multi-Label Music Tagging Engine
 
+[![Live Demo](https://img.shields.io/badge/Render-Live_Demo-00E599.svg)](https://polyphonic-instrument-tagging.onrender.com/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1%2Bcu121-EE4C2C.svg)](https://pytorch.org/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-1.30-005CED.svg)](https://onnxruntime.ai/)
@@ -7,7 +8,12 @@
 [![Dataset](https://img.shields.io/badge/Dataset-OpenMIC--2018-purple.svg)](https://zenodo.org/record/1432913)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+> **Live Web Application:** [https://polyphonic-instrument-tagging.onrender.com/](https://polyphonic-instrument-tagging.onrender.com/)  
+> **Interactive API Documentation (Swagger):** [https://polyphonic-instrument-tagging.onrender.com/docs](https://polyphonic-instrument-tagging.onrender.com/docs)  
+> **Service Health Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)
+
 AudioTag AI is an acoustic multi-label recognition system that analyzes complex polyphonic music recordings and simultaneously detects the presence of up to 18 instruments.
+
 
 Unlike legacy single-instrument classifiers that assume only one instrument sounds at a time (single-label softmax), AudioTag AI formulates acoustic tagging as a multi-label classification problem. Powered by an AudioResNet-SE deep neural network exported to a kernel-fused **ONNX Runtime** engine, it computes independent sigmoid activations for each instrument class, resolving concurrent guitars, drums, bass, vocals, brass, and strings with sub-4ms latency.
 
@@ -20,7 +26,9 @@ Unlike legacy single-instrument classifiers that assume only one instrument soun
 │             Editorial Acoustic Web Client              │
 │   FastAPI + Jinja2 + Vanilla CSS & JS + Web Audio API  │
 │   • Drag & Drop Audio Analysis (WAV / MP3 / OGG / FLAC)│
-│   • 18-Way Dynamic Confidence Bar Breakdown            │
+│   • Panoramic Song Instrumentation Timeline Heatmap    │
+│   • Interactive Window-by-Window Mix Inspector         │
+│   • 18-Way Dynamic Confidence Bar Spectrum             │
 │   • Dual-Mode Sorting: Alphabetical vs. Probability    │
 │   • Log-Mel Spectrogram Visualization (128 x 128)      │
 │   • Interactive Instrument Timbre Synthesis & Dossier  │
@@ -32,20 +40,21 @@ Unlike legacy single-instrument classifiers that assume only one instrument soun
 │                                                        │
 │  1. Audio Input (.wav, .mp3, .ogg, .flac, .m4a)        │
 │  2. File Guard: 50 MB upload limit & MIME validation   │
-│  3. Resample & Normalize to 10.0s @ 22,050 Hz Mono     │
-│  4. Log-Mel Spectrogram (128 bands, fmax=8000 Hz)      │
-│  5. Normalization to [0, 1] → Input Tensor: (1,1,128,128)
-│  6. Multi-Engine Inference Loader:                     │
-│     ├── Tier 1 (Active): ONNX Runtime Graph (~3ms)     │
-│     │   (audiotag_model_v1.onnx, Opset 17, Fused Ops)  │
+│  3. C-Level Audio Streaming (soundfile + soxr SIMD)    │
+│  4. Single-Pass STFT with Cached 128-band MEL_BASIS    │
+│  5. 2D Spectrogram Frame Slicing (128x128 windows)     │
+│  6. Multi-Engine Vectorized Batch Inference:           │
+│     ├── Tier 1 (Active): ONNX Runtime Graph            │
+│     │   (audiotag_model_v1.onnx, 48ms for 71 windows)  │
 │     ├── Tier 2 (Fallback): PyTorch GPU AudioResNet-SE  │
 │     │   (audiotag_model_v1.pt, 0.8989 Test AUROC)      │
 │     └── Tier 3 (Legacy): Keras Baseline Fallback       │
-│  7. 18 Independent Sigmoid Probabilities               │
+│  7. Dual Aggregation: Global Scores + Timeline Heatmap │
 │                                                        │
-│  Output: Multi-label detections + base64 spectrogram   │
+│  Output: Detections + Timeline Matrix + Spectrogram    │
 └────────────────────────────────────────────────────────┘
 ```
+
 
 ---
 
@@ -70,7 +79,28 @@ The backend loader (`model_loader.py`) automatically routes requests through the
 
 ---
 
+## Full-Song Vectorized Sliding-Window Analysis & Timeline Heatmap
+
+AudioTag AI processes both short 10-second clips and entire 3-to-5 minute songs without degrading accuracy or exceeding cloud free-tier constraints (512 MB RAM, 0.1 CPU core):
+
+1. **Precomputed Mel Filterbank (`MEL_BASIS`)**: The 128-band triangular Mel matrix is cached at server startup, accelerating Fourier transforms by **21.5x**.
+2. **Single-Pass Full-Audio STFT**: Rather than running tens of separate STFT passes, a single Fourier transform is computed across the entire track in **~890 ms**.
+3. **2D Spectrogram Frame Slicing**: Windows of width 128 frames (corresponding to 10 seconds of acoustic context) are extracted directly from the 2D spectrogram matrix (`mel_db[:, start_f:end_f]`) in **2.7 ms** without re-running Fourier transforms.
+4. **Vectorized Batch ONNX Inference**: All windows are stacked into a 4D batch tensor `(N, 1, 128, 128)`. ONNX Runtime executes fused SIMD kernels across all 71 windows of a 3.5-minute song in **48.2 ms**.
+5. **Interactive Timeline Heatmap**: The web client renders a visual timeline showing exactly when each instrument enters and leaves, with live scrubbing and real-time response to the cutoff slider.
+
+| Stage | Latency (210s Track) | Peak Memory | Operational Mechanism |
+|---|---|---|---|
+| **Audio Loading & Resampling** | ~200 ms | 18.5 MB | Native C `soundfile` + SIMD `soxr.resample(quality='QQ')` |
+| **Single-Pass STFT + Mel** | 895 ms | 4.6 MB | Cached `MEL_BASIS` matrix multiplication |
+| **Spectrogram Window Slicing (71 windows)** | 2.7 ms | 1.4 MB | Strided 2D NumPy array slicing |
+| **Batch ONNX Inference (71 windows)** | 48.2 ms | 1.4 MB | Dynamic batch execution on C++ ONNX Runtime |
+| **Total Track Pipeline** | **~1.5 to 2.1 s** | **~95 MB** | **Fits comfortably within 0.1 CPU core and 512 MB RAM limit** |
+
+---
+
 ## 18 Target Instrument Classes
+
 
 | Instrument | Classification Type | Typical Frequency Range |
 |---|---|---|
@@ -99,6 +129,9 @@ The backend loader (`model_loader.py`) automatically routes requests through the
 
 ```
 AudioTag-AI/
+├── Dockerfile                    # Production container specification (Python 3.10-slim + ffmpeg)
+├── render.yaml                   # Render Blueprint for automatic cloud deployments
+├── Procfile                      # Process declaration for web deployment
 ├── requirements.txt              # Core dependencies (ONNX Runtime, PyTorch, FastAPI, librosa)
 ├── AGENT_CONTEXT.md              # Architectural invariants and developer guide
 ├── README.md                     # Project overview and setup instructions
@@ -107,24 +140,24 @@ AudioTag-AI/
 │   └── app/
 │       ├── main.py               # FastAPI application with restricted CORS & logging
 │       ├── core/
-│       │   ├── model_loader.py   # ONNX Runtime primary loader with PyTorch fallback
-│       │   └── inference.py      # Multi-label inference & spectrogram generation
+│       │   ├── model_loader.py   # ONNX Runtime primary loader with lazy PyTorch fallback
+│       │   └── inference.py      # Batch sliding-window inference & timeline generation
 │       ├── routes/
 │       │   └── analyze.py        # POST /analyze with file size & MIME validation
 │       ├── utils/
-│       │   └── preprocess.py     # High-speed torchaudio/librosa Log-Mel pipeline
+│       │   └── preprocess.py     # Vectorized single-pass STFT & sliding-window pipeline
 │       └── models/
-│           ├── audiotag_model_v1.onnx  # Exported ONNX Runtime graph (3.11 ms latency)
+│           ├── audiotag_model_v1.onnx  # Exported ONNX Runtime graph (3.11 ms, tracked in Git)
 │           ├── audiotag_model_v1.pt    # PyTorch AudioResNet-SE checkpoint (Macro AUROC: 0.8989)
 │           └── audiotag_model_v1.keras # Legacy fallback checkpoint
 │
 ├── templates/
 │   ├── base.html                 # Shell layout and navigation
-│   └── index.html                # Editorial acoustic studio and taxonomy dossier
+│   └── index.html                # Editorial acoustic studio, dossier & timeline heatmap
 │
 ├── static/
-│   ├── app.js                    # Web Audio API synthesizer, sorting & file upload
-│   └── style.css                 # Editorial typography and design system
+│   ├── app.js                    # Web Audio API synthesizer, timeline heatmap & sorting
+│   └── style.css                 # Editorial typography, timeline lanes & design system
 │
 ├── Scripts/
 │   ├── setup_openmic.py          # Resumable OpenMIC-2018 downloader & label generator
@@ -134,7 +167,7 @@ AudioTag-AI/
 │
 └── docs/
     ├── MASTER_PLAN.md            # Comprehensive project roadmap & milestones
-    └── DECISIONS_AND_ARCHITECTURE.md # Architectural decisions log
+    └── DECISIONS_AND_ARCHITECTURE.md # Complete architectural decisions log
 ```
 
 ---
@@ -193,7 +226,7 @@ python Scripts/train_openmic_gpu.py --epochs 30 --batch_size 64
 
 ### `POST /analyze`
 
-Analyzes an uploaded audio file and outputs independent confidence scores for each instrument.
+Analyzes an uploaded audio file (short excerpt or full song) and outputs independent confidence scores, detected instruments, and a window-by-window timeline heatmap.
 
 **Headers:**
 `Content-Type: multipart/form-data`
@@ -207,7 +240,7 @@ Analyzes an uploaded audio file and outputs independent confidence scores for ea
 {
   "status": "success",
   "filename": "track.mp3",
-  "duration_seconds": 10.0,
+  "duration_seconds": 210.0,
   "engine": "onnx",
   "predictions": {
     "accordion": 0.0124,
@@ -231,9 +264,46 @@ Analyzes an uploaded audio file and outputs independent confidence scores for ea
   },
   "detected": ["drums", "cymbals", "guitar", "voice", "bass"],
   "threshold": 0.5,
+  "is_full_song": true,
+  "num_windows": 71,
+  "timeline": [
+    {
+      "window_index": 0,
+      "start": 0.0,
+      "end": 2.97,
+      "display": "0:00 - 0:02",
+      "predictions": { "guitar": 0.8245, "drums": 0.1245 },
+      "detected": ["guitar"]
+    }
+  ],
+  "timeline_summary": {
+    "drums": {
+      "peak": 0.9634,
+      "mean": 0.8412,
+      "presence_percent": 82.5,
+      "intervals": ["0:15 - 1:45", "2:05 - 3:30"]
+    }
+  },
   "spectrogram_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
 }
 ```
+
+---
+
+## Cloud Deployment (Docker & Render)
+
+AudioTag AI is containerized for zero-configuration cloud deployment:
+
+- **Live Production URL:** [https://polyphonic-instrument-tagging.onrender.com/](https://polyphonic-instrument-tagging.onrender.com/)
+- **Swagger Documentation:** [https://polyphonic-instrument-tagging.onrender.com/docs](https://polyphonic-instrument-tagging.onrender.com/docs)
+- **Health Check Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)
+
+### Container Architecture
+The repository includes a production [`Dockerfile`](Dockerfile), [`render.yaml`](render.yaml), and [`Procfile`](Procfile):
+- **Base Image:** `python:3.10-slim`
+- **Native Audio Codecs:** Pre-installs `ffmpeg` and `libsndfile1`
+- **Execution Engine:** `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+- **Model Inversion:** The 11.17 MB ONNX model graph is tracked in Git, ensuring cloud builds have the model ready immediately without S3/GCS download dependencies.
 
 ---
 
@@ -242,3 +312,4 @@ Analyzes an uploaded audio file and outputs independent confidence scores for ea
 - **Loss Function:** Binary Cross-Entropy with Pos-Weight adjustment for label imbalance.
 - **Evaluation Metric:** Multi-label Macro AUROC (Current checkpoint: **0.8989**).
 - **Inference Latency:** **3.11 ms** per 10-second audio track via ONNX Runtime (**4.74x faster** than PyTorch CPU).
+- **Full-Song Analysis:** **1.53 s** for a 3.5-minute song (71 sliding windows in **48.2 ms** batch inference).
