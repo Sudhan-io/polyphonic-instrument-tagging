@@ -55,6 +55,7 @@ AudioTag-AI/
 │   ├── export_onnx.py            # Automated ONNX export, parity verification & benchmark
 │   └── openmic-2018/             # Extracted dataset and cache files (cache_X.npy, cache_y.npy)
 ├── docs/
+│   ├── CONCEPTS_AND_ALGORITHMS.md     # Exhaustive unit-by-unit concepts & algorithms guide
 │   ├── DECISIONS_AND_ARCHITECTURE.md  # Chronicle of all technical choices and rationale
 │   ├── MASTER_PLAN.md                 # System blueprint and roadmap
 │   └── TECHNICAL_QA_DOSSIER.md        # Exhaustive 108-question technical interview guide

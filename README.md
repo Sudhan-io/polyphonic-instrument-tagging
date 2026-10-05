@@ -11,6 +11,7 @@
 > **Live Web Application:** [https://polyphonic-instrument-tagging.onrender.com/](https://polyphonic-instrument-tagging.onrender.com/)  
 > **Interactive API Documentation (Swagger):** [https://polyphonic-instrument-tagging.onrender.com/docs](https://polyphonic-instrument-tagging.onrender.com/docs)  
 > **Service Health Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)  
+> **Core Unit Concepts & Algorithms Reference Guide:** [docs/CONCEPTS_AND_ALGORITHMS.md](docs/CONCEPTS_AND_ALGORITHMS.md)  
 > **Technical Q&A & Interview Dossier (108 Questions):** [docs/TECHNICAL_QA_DOSSIER.md](docs/TECHNICAL_QA_DOSSIER.md)
 
 AudioTag AI is an acoustic multi-label recognition system that analyzes complex polyphonic music recordings and simultaneously detects the presence of up to 18 instruments.
@@ -335,11 +336,10 @@ The repository includes a production [`Dockerfile`](Dockerfile), [`render.yaml`]
 
 ---
 
-## Technical Q&A & Interview Dossier (108 Questions)
+## Core Concepts & Technical Reference Guides
 
-An exhaustive, 108-question technical guide covering every aspect of the AudioTag AI engineering stack—including DSP mathematics, deep learning architectures, loss formulations, sliding-window analysis, memory profiling, ONNX acceleration, cloud containerization, security, and edge-case failure modes—is documented in the project repository:
-
-**Read the Full Dossier:** [docs/TECHNICAL_QA_DOSSIER.md](docs/TECHNICAL_QA_DOSSIER.md)
+1. **[Core Unit Concepts & Algorithms Reference Guide](docs/CONCEPTS_AND_ALGORITHMS.md)**: Exhaustive component-by-component theoretical compendium explaining what every DSP unit, neural block, loss term, optimization algorithm, and inference optimization does, why it was chosen, and alternative approaches rejected.
+2. **[Technical Q&A & Interview Dossier (108 Questions)](docs/TECHNICAL_QA_DOSSIER.md)**: 108 in-depth, rigorous technical questions and answers (each 50+ words) covering every layer of the system.
 
 ### Dossier Thematic Sections:
 1. **[Problem Framing, Music Information Retrieval (MIR) & Organology](docs/TECHNICAL_QA_DOSSIER.md#section-1-problem-framing-music-information-retrieval-mir--organology)**: Multi-label vs. multi-class, overlapping frequencies, 18 Hornbostel-Sachs classes, AMT vs. source separation, synth vs. acoustic timbre. (Q1 - Q10)

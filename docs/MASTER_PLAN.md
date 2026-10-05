@@ -262,11 +262,12 @@ AudioTag-AI/
 - [x] Implemented vectorized batch ONNX inference (`(N, 1, 128, 128)`) running full 3.5m tracks in 48.2ms.
 - [x] Built interactive Song Instrumentation Timeline Heatmap in native editorial UI.
 
-### Phase 8: Technical Q&A & Comprehensive Interview Dossier
-- [x] Authored comprehensive 108-question technical interview dossier covering MIR organology, deep learning architectures, loss formulations, DSP physics, sliding window mechanics, ONNX acceleration, cloud containerization, security, and edge cases.
+### Phase 8: Core Concepts Guide & Technical Q&A Interview Dossier
+- [x] Authored `docs/CONCEPTS_AND_ALGORITHMS.md`: Exhaustive unit-by-unit theoretical guide explaining what every DSP unit, neural block, loss formulation, optimization method, and inference acceleration technique does, why it was chosen, and alternative techniques rejected.
+- [x] Authored `docs/TECHNICAL_QA_DOSSIER.md`: Comprehensive 108-question technical interview dossier covering MIR organology, deep learning architectures, loss formulations, DSP physics, sliding window mechanics, ONNX acceleration, cloud containerization, security, and edge cases.
 - [x] Enforced strict length requirement: 108 of 108 questions have detailed technical answers exceeding 50 words (average 108.3 words per answer).
 - [x] Implemented interactive table of contents with anchor links for rapid navigation across all 9 thematic sections.
-- [x] Cross-linked dossier from `README.md` and repository documentation.
+- [x] Cross-linked both guides from `README.md`, `AGENT_CONTEXT.md`, and repository documentation.
 
 ---
 
@@ -277,7 +278,8 @@ AudioTag-AI/
 - **Active Web Service**: `http://127.0.0.1:8000` (FastAPI + Uvicorn)
 - **Active Inference Engine**: ONNX Runtime (`audiotag_model_v1.onnx`) with Batch Sliding Window Acceleration
 - **Active Training Pipeline**: PyTorch GPU (`Scripts/train_openmic_gpu.py`)
-- **Technical Q&A Dossier**: `docs/TECHNICAL_QA_DOSSIER.md` (108 Questions, 50+ words each)
-- **Documentation Status**: 100% synchronized across `README.md`, `AGENT_CONTEXT.md`, `docs/DECISIONS_AND_ARCHITECTURE.md`, `docs/MASTER_PLAN.md`, and `docs/TECHNICAL_QA_DOSSIER.md`.
+- **Core Concepts Guide**: `docs/CONCEPTS_AND_ALGORITHMS.md` (60 KB theoretical breakdown)
+- **Technical Q&A Dossier**: `docs/TECHNICAL_QA_DOSSIER.md` (108 Questions, 50+ words each, 111 KB)
+- **Documentation Status**: 100% synchronized across `README.md`, `AGENT_CONTEXT.md`, `docs/DECISIONS_AND_ARCHITECTURE.md`, `docs/MASTER_PLAN.md`, `docs/CONCEPTS_AND_ALGORITHMS.md`, and `docs/TECHNICAL_QA_DOSSIER.md`.
 
 

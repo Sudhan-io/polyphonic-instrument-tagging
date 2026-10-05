@@ -1,7 +1,8 @@
 # AudioTag AI — Technical Q&A & Interview Dossier (108 Questions)
 
 > **Exhaustive Architectural, DSP, Deep Learning, Systems Engineering & Interview Guide**  
-> This dossier contains 108 in-depth, rigorous technical questions and answers (each exceeding 50 words) covering every layer of the AudioTag AI engineering stack.
+> This dossier contains 108 in-depth, rigorous technical questions and answers (each exceeding 50 words) covering every layer of the AudioTag AI engineering stack.  
+> **Theoretical Compendium:** For a component-by-component theoretical breakdown of every unit concept, algorithm, formula, and architectural choice, see the companion **[Core Unit Concepts & Algorithms Reference Guide](CONCEPTS_AND_ALGORITHMS.md)**.
 
 ---
 
