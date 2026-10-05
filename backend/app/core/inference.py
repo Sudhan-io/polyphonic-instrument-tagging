@@ -3,7 +3,6 @@ import base64
 import os
 import numpy as np
 import librosa
-import torch
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -43,13 +42,13 @@ def generate_spectrogram_image_base64(spec_2d):
 
 def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):
     """
-    Run multi-label inference on an audio file using PyTorch (GPU/CPU) or Keras.
+    Run multi-label inference on an audio file using ONNX Runtime (fastest), PyTorch, or Keras.
     Returns:
         dict containing predictions for all 18 instruments, detected list, and spectrogram image.
     """
     model, m_type = get_model()
 
-    # Preprocess audio to (128, 128)
+    # Preprocess audio to (128, 128) - only reads first 10 seconds
     spec_2d = audio_to_melspec(audio_path)
     if spec_2d is None:
         raise ValueError(f"Failed to process audio file: {audio_path}")
@@ -60,15 +59,16 @@ def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):
     if model is None:
         raise RuntimeError("AudioTag AI model is not loaded. Train the model first.")
 
-    # 1. ONNX Runtime Inference (fastest, kernel-fused)
+    # 1. ONNX Runtime Inference (ultra-low latency, ~3ms, no PyTorch overhead)
     if m_type == "onnx":
         x_np = spec_2d[np.newaxis, np.newaxis, ...].astype(np.float32)
         input_name = model.get_inputs()[0].name
         logits = model.run(None, {input_name: x_np})[0]
         raw_preds = (1.0 / (1.0 + np.exp(-logits)))[0]
 
-    # 2. PyTorch AudioResNet-SE Inference
+    # 2. PyTorch AudioResNet-SE Inference (lazy import so torch doesn't eat RAM when onnx is used)
     elif m_type == "pytorch":
+        import torch
         device = next(model.parameters()).device
         x_tensor = torch.tensor(spec_2d, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -92,11 +92,17 @@ def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):
     # Sort detected instruments by confidence descending
     detected.sort(key=lambda inst: predictions[inst], reverse=True)
 
-    # Audio duration
+    # Audio duration - fast header inspection via soundfile first
+    duration = 10.0
     try:
-        duration = float(librosa.get_duration(path=audio_path))
+        import soundfile as sf
+        info = sf.info(audio_path)
+        duration = float(info.duration)
     except Exception:
-        duration = 10.0
+        try:
+            duration = float(librosa.get_duration(path=audio_path))
+        except Exception:
+            duration = 10.0
 
     return {
         "status": "success",

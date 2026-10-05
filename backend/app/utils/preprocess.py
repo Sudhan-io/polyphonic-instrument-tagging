@@ -4,7 +4,7 @@ import librosa
 
 SAMPLE_RATE = 22050
 DURATION = 10.0
-N_SAMPLES = int(SAMPLE_RATE * DURATION)  # 220,500
+N_SAMPLES = int(SAMPLE_RATE * DURATION)  # 220,500 samples (10.0s @ 22.05kHz)
 N_MELS = 128
 IMG_W = 128
 FMAX = 8000
@@ -12,27 +12,45 @@ FMAX = 8000
 
 def load_audio_waveform(file_path):
     """
-    Robust audio waveform loader supporting .mp3, .wav, .ogg, .flac, .m4a.
-    Uses torchaudio as primary high-speed backend, with librosa fallback.
+    High-speed audio waveform loader supporting .mp3, .wav, .ogg, .flac, .m4a.
+    CRITICAL OPTIMIZATION: Only decodes the first 10.0 seconds directly from the file.
+    Never decodes or resamples full 3-5 minute songs, preventing CPU/memory timeouts.
     """
+    # 1. Fast path: load first 10 seconds directly with librosa at target sample rate
+    try:
+        y, _ = librosa.load(
+            file_path,
+            sr=SAMPLE_RATE,
+            mono=True,
+            duration=DURATION
+        )
+        return y
+    except Exception:
+        pass
+
+    # 2. Secondary path: torchaudio with frame cap
     try:
         import torchaudio
-        waveform, sr = torchaudio.load(file_path)
-        # Convert to mono
+        # Read at most ~12 seconds of frames to avoid loading large files
+        info = torchaudio.info(file_path)
+        max_frames = int(info.sample_rate * (DURATION + 1.0))
+        waveform, sr = torchaudio.load(file_path, num_frames=max_frames)
+
         if waveform.ndim > 1 and waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0)
         elif waveform.ndim > 1:
             waveform = waveform.squeeze(0)
         y = waveform.numpy()
 
-        # Resample to 22,050 Hz if needed
         if sr != SAMPLE_RATE:
             y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE)
-        return y
+        return y[:N_SAMPLES]
     except Exception:
-        # Fallback to librosa
-        y, _ = librosa.load(file_path, sr=SAMPLE_RATE, mono=True)
-        return y
+        pass
+
+    # 3. Final fallback: standard load with duration cap
+    y, _ = librosa.load(file_path, sr=SAMPLE_RATE, mono=True, duration=DURATION)
+    return y
 
 
 def audio_to_melspec(file_path_or_array, sr=None):
