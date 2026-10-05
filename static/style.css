@@ -450,6 +450,108 @@ a {
   margin-top: 4px;
 }
 
+/* ==============================================================================
+   Song Instrumentation Timeline Heatmap
+   ============================================================================== */
+.timeline-lane {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f2ee;
+  transition: background 0.15s ease;
+}
+
+.timeline-lane:last-child {
+  border-bottom: none;
+}
+
+.timeline-lane:hover {
+  background: #fafbfa;
+}
+
+.timeline-label-col {
+  width: 148px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+}
+
+.timeline-inst-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.timeline-inst-name:hover {
+  color: var(--coral);
+}
+
+.timeline-inst-pct {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.timeline-blocks-strip {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  height: 20px;
+  background: #f7f8f5;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.timeline-block {
+  flex: 1;
+  height: 100%;
+  border-radius: 2px;
+  background: #e5e8e3;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  position: relative;
+}
+
+.timeline-block:hover {
+  transform: scaleY(1.25);
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-block.active {
+  background: linear-gradient(180deg, #ff8c38, #ff6b00);
+}
+
+.timeline-block.column-hover {
+  outline: 1px solid var(--ink);
+}
+
+.inspector-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.inspector-chip.active {
+  background: var(--coral-soft);
+  border-color: #ffd8c2;
+  color: #c44f00;
+}
+
+
 /* Instruments 18-Grid */
 .instrument-grid {
   display: grid;

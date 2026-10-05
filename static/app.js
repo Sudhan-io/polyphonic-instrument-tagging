@@ -1082,6 +1082,9 @@ function renderResults(data) {
     specImg.style.display = 'none';
   }
 
+  // Render Song Instrumentation Timeline
+  renderSongTimeline(data);
+
   // Update the benchmark taxonomy cards with live scores and color intensity
   updateTaxonomyCards(predictions);
 
@@ -1089,6 +1092,184 @@ function renderResults(data) {
   if (currentSortMode === 'prob') {
     sortTaxonomyGrid('prob');
   }
+}
+
+let selectedTimelineWindowIndex = null;
+
+/**
+ * Renders the Song Instrumentation Timeline heatmap across sliding windows.
+ */
+function renderSongTimeline(data) {
+  const timelineCard = document.getElementById('timeline-card');
+  if (!timelineCard) return;
+
+  if (!data.timeline || data.timeline.length === 0) {
+    timelineCard.style.display = 'none';
+    return;
+  }
+
+  timelineCard.style.display = 'block';
+
+  // Ruler setup
+  const totalDuration = data.duration_seconds || 10.0;
+  const startEl = document.getElementById('timeline-start-time');
+  const midEl = document.getElementById('timeline-mid-time');
+  const endEl = document.getElementById('timeline-end-time');
+  const badgeEl = document.getElementById('timeline-badge');
+
+  function fmtTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  if (startEl) startEl.textContent = "0:00";
+  if (endEl) endEl.textContent = fmtTime(totalDuration);
+  if (midEl) midEl.textContent = fmtTime(totalDuration / 2);
+  if (badgeEl) badgeEl.textContent = `${data.num_windows || data.timeline.length} Windows · ${totalDuration.toFixed(1)}s`;
+
+  // Select instruments to display in timeline lanes
+  const summary = data.timeline_summary || {};
+  const predictions = data.predictions || {};
+  const currentThreshold = parseFloat(document.getElementById('threshold-slider').value);
+
+  // Sort instruments by peak score descending
+  const sortedInstruments = Object.keys(predictions).sort((a, b) => {
+    const peakA = summary[a] ? summary[a].peak : (predictions[a] || 0);
+    const peakB = summary[b] ? summary[b].peak : (predictions[b] || 0);
+    return peakB - peakA;
+  });
+
+  // Pick instruments: all with peak >= threshold, or at least top 6
+  let displayInstruments = sortedInstruments.filter(inst => {
+    const peak = summary[inst] ? summary[inst].peak : predictions[inst];
+    return peak >= currentThreshold || (summary[inst] && summary[inst].presence_percent > 0);
+  });
+
+  if (displayInstruments.length < 5) {
+    displayInstruments = sortedInstruments.slice(0, 6);
+  }
+
+  const lanesContainer = document.getElementById('timeline-lanes');
+  lanesContainer.innerHTML = '';
+
+  displayInstruments.forEach(inst => {
+    const intel = INSTRUMENT_INTEL[inst] || { name: inst };
+    const instSumm = summary[inst] || {};
+    const peak = instSumm.peak || predictions[inst] || 0;
+
+    const lane = document.createElement('div');
+    lane.className = 'timeline-lane';
+    lane.dataset.instrument = inst;
+
+    // Label column
+    const labelCol = document.createElement('div');
+    labelCol.className = 'timeline-label-col';
+    labelCol.innerHTML = `
+      <span class="timeline-inst-name" title="Click to view ${intel.name} intelligence dossier">${intel.name}</span>
+      <span class="timeline-inst-pct" title="Peak presence: ${Math.round(peak * 100)}%">${Math.round(peak * 100)}%</span>
+    `;
+
+    labelCol.querySelector('.timeline-inst-name').addEventListener('click', () => {
+      openInstrumentDossier(inst, predictions[inst], null);
+    });
+
+    // Strip of window blocks
+    const strip = document.createElement('div');
+    strip.className = 'timeline-blocks-strip';
+
+    data.timeline.forEach((w, wIdx) => {
+      const block = document.createElement('div');
+      block.className = 'timeline-block';
+      const score = w.predictions[inst] || 0;
+      block.dataset.windowIndex = wIdx;
+      block.dataset.instrument = inst;
+      block.dataset.score = score;
+
+      if (score >= currentThreshold) {
+        block.classList.add('active');
+      }
+
+      block.title = `${intel.name} · ${w.display}: ${Math.round(score * 100)}%`;
+
+      block.addEventListener('mouseenter', () => {
+        highlightTimelineColumn(wIdx);
+        inspectTimelineWindow(wIdx);
+      });
+
+      block.addEventListener('click', () => {
+        highlightTimelineColumn(wIdx);
+        inspectTimelineWindow(wIdx);
+      });
+
+      strip.appendChild(block);
+    });
+
+    lane.appendChild(labelCol);
+    lane.appendChild(strip);
+    lanesContainer.appendChild(lane);
+  });
+
+  // Strip mouseleave removes column highlight
+  lanesContainer.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.timeline-block.column-hover').forEach(el => el.classList.remove('column-hover'));
+  });
+
+  // Default to inspecting the first window
+  if (data.timeline.length > 0) {
+    inspectTimelineWindow(0);
+  }
+}
+
+function highlightTimelineColumn(windowIdx) {
+  document.querySelectorAll('.timeline-block.column-hover').forEach(el => el.classList.remove('column-hover'));
+  document.querySelectorAll(`.timeline-block[data-window-index="${windowIdx}"]`).forEach(el => {
+    el.classList.add('column-hover');
+  });
+}
+
+function inspectTimelineWindow(windowIdx) {
+  selectedTimelineWindowIndex = windowIdx;
+  if (!currentResults || !currentResults.timeline || !currentResults.timeline[windowIdx]) return;
+
+  const w = currentResults.timeline[windowIdx];
+  const inspector = document.getElementById('timeline-window-inspector');
+  const rangeEl = document.getElementById('inspector-window-range');
+  const summaryEl = document.getElementById('inspector-window-summary');
+  const chipsContainer = document.getElementById('inspector-chips');
+  const currentThreshold = parseFloat(document.getElementById('threshold-slider').value);
+
+  if (!inspector) return;
+  inspector.style.display = 'block';
+
+  rangeEl.textContent = `${w.display} (${w.start.toFixed(1)}s - ${w.end.toFixed(1)}s)`;
+
+  // Sort window instruments by confidence
+  const sortedWin = Object.entries(w.predictions).sort((a, b) => b[1] - a[1]);
+  const activeWin = sortedWin.filter(e => e[1] >= currentThreshold);
+
+  if (activeWin.length > 0) {
+    const names = activeWin.map(e => (INSTRUMENT_INTEL[e[0]] || { name: e[0] }).name);
+    summaryEl.textContent = `Active Mix (${activeWin.length}): ${names.join(', ')}`;
+  } else {
+    summaryEl.textContent = `No instrument above ${currentThreshold.toFixed(2)} cutoff in this window`;
+  }
+
+  chipsContainer.innerHTML = '';
+  sortedWin.slice(0, 8).forEach(([inst, score]) => {
+    const intel = INSTRUMENT_INTEL[inst] || { name: inst };
+    const isActive = score >= currentThreshold;
+    const chip = document.createElement('div');
+    chip.className = `inspector-chip ${isActive ? 'active' : ''}`;
+    chip.innerHTML = `
+      <span>${intel.name}</span>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px;">${Math.round(score * 100)}%</span>
+    `;
+    chip.addEventListener('click', () => {
+      openInstrumentDossier(inst, score, null);
+    });
+    chipsContainer.appendChild(chip);
+  });
 }
 
 /**
@@ -1179,8 +1360,25 @@ function updateActiveThreshold(thresholdVal) {
     }
   });
 
+  // Update timeline blocks dynamically
+  const timelineBlocks = document.querySelectorAll('.timeline-block');
+  timelineBlocks.forEach(block => {
+    const score = parseFloat(block.dataset.score);
+    if (score >= thresholdVal) {
+      block.classList.add('active');
+    } else {
+      block.classList.remove('active');
+    }
+  });
+
+  // Re-evaluate inspector chips if active
+  if (selectedTimelineWindowIndex !== null && currentResults && currentResults.timeline) {
+    inspectTimelineWindow(selectedTimelineWindowIndex);
+  }
+
   document.getElementById('metric-active-count').textContent = `${activeCount} / 18`;
 }
+
 
 /**
  * Opens the rich Multi-Layer Instrument Dossier modal.

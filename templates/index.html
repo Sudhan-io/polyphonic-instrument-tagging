@@ -119,9 +119,54 @@
       </div>
     </div>
 
+    <!-- Interactive Full-Song Instrumentation Timeline -->
+    <div id="timeline-card" class="card" style="margin-bottom: 24px; display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <h3 style="font: 600 18px Georgia, serif; margin: 0;">Song Instrumentation Timeline</h3>
+            <span id="timeline-badge" class="badge badge-coral" style="font-size: 10px;">Sliding Window Active</span>
+          </div>
+          <span style="font-size: 13px; color: var(--muted);" id="timeline-subtitle">Time-segmented sliding-window activation heatmap across track</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; font-size: 11px; font-family:'JetBrains Mono',monospace;">
+          <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: var(--coral); border-radius: 2px;"></span> Active (&ge; Cutoff)</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: #e5e8e3; border-radius: 2px;"></span> Inactive</span>
+        </div>
+      </div>
+
+      <!-- Scrubber & Time Axis -->
+      <div style="display: flex; margin-bottom: 8px;">
+        <div style="width: 148px; flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Instrument</div>
+        <div id="timeline-ruler" style="flex: 1; display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-family:'JetBrains Mono',monospace; padding: 0 4px;">
+          <span id="timeline-start-time">0:00</span>
+          <span id="timeline-mid-time">—</span>
+          <span id="timeline-end-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Timeline Heatmap Lanes -->
+      <div id="timeline-lanes" style="display: flex; flex-direction: column; gap: 6px;">
+        <!-- Dynamically rendered instrument lanes -->
+      </div>
+
+      <!-- Selected Window Inspector -->
+      <div id="timeline-window-inspector" style="margin-top: 16px; padding: 12px 16px; background: #fafbfa; border: 1px solid var(--line); border-radius: 6px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--coral);" id="inspector-window-title">Window Analysis</span>
+            <span style="font-size: 12px; color: var(--muted); font-family:'JetBrains Mono',monospace;" id="inspector-window-range">0:00 - 0:03</span>
+          </div>
+          <span style="font-size: 11px; color: var(--muted);" id="inspector-window-summary">Hover or click a block to inspect that window's mix</span>
+        </div>
+        <div id="inspector-chips" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+      </div>
+    </div>
+
     <!-- Layout: 18 Instruments Grid + Mel Spectrogram -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
       <!-- Left: 18 Instruments -->
+
       <div class="card">
         <h3 style="font: 600 18px Georgia, serif; margin: 0 0 16px;">Instrument Probability Spectrum</h3>
         <div id="instruments-container" class="instrument-grid" style="grid-template-columns: 1fr;">

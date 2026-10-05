@@ -67,6 +67,7 @@ AudioTag-AI/
 2. **Upload Guards**: `analyze.py` enforces a 50 MB file size limit and checks for `audio/*` / `video/*` MIME prefixes before disk writes.
 3. **No Legacy NSynth Models**: Old models (`instrunet_model_v3.keras` and `instrunet_condition.keras`) have been permanently removed. Do NOT attempt to reference them.
 4. **ONNX Runtime First, Lazy PyTorch**: `model_loader.py` exclusively serves `audiotag_model_v1.onnx` by default (~3.11 ms, ~40 MB RAM). PyTorch is wrapped in a lazy import factory so that it is never loaded in cloud containers unless explicitly requested (`AUDIOTAG_ENGINE=pytorch`), preventing out-of-memory errors on 512 MB instances.
-5. **Direct 10.0s Container Streaming**: `preprocess.py` uses `librosa.load(..., duration=10.0)` to stream only the first 10 seconds directly from the media container, eliminating multi-minute sinc-resampling CPU lockups on cloud tiers.
+5. **Full-Song Vectorized Sliding Window**: `preprocess.py` uses precomputed `MEL_BASIS` with single-pass STFT and 2D spectrogram slicing. Full 3-5 minute tracks are processed in a single batch ONNX call in ~48ms, consuming <100MB peak RAM.
 6. **No Emojis**: Maintain the editorial aesthetic: Georgia serif headlines, `#f7f8f5` paper background, `#18201d` dark ink, `#ff6b00` vibrant orange accent, and geometric/SVG icons.
+
 

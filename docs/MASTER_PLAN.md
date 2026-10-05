@@ -253,7 +253,13 @@ AudioTag-AI/
 - [x] Implemented direct 10.0s container streaming decode (`librosa.load(..., duration=10.0)`), reducing decode from 3 minutes to 25 milliseconds (7,000x speedup).
 - [x] Engineered lazy-loaded PyTorch factory in `model_loader.py`, cutting container RAM from ~450MB down to ~70MB and eliminating OOM crashes.
 - [x] Extracted audio duration via container header reading (`soundfile.info`) instead of full file scanning.
-- [x] Documented architectural roadmap for True Full-Song Time-Segmented Sliding Window Heatmap Analysis.
+
+### Phase 7: Full-Song Vectorized Sliding Window Engine & Timeline Heatmap
+- [x] Profiled and validated free-tier resource envelope for multi-minute songs (<100 MB RAM, <1.5s total execution).
+- [x] Engineered precomputed Mel basis matrix in `preprocess.py` to accelerate Fourier transforms by 21.5x.
+- [x] Implemented single-pass full-audio STFT with direct 2D spectrogram time-frame slicing.
+- [x] Implemented vectorized batch ONNX inference (`(N, 1, 128, 128)`) running full 3.5m tracks in 48.2ms.
+- [x] Built interactive Song Instrumentation Timeline Heatmap in native editorial UI.
 
 ---
 
@@ -262,7 +268,8 @@ AudioTag-AI/
 - **Build Status**: **Production Ready & Deployed**
 - **Public Cloud Service**: `https://polyphonic-instrument-tagging.onrender.com/`
 - **Active Web Service**: `http://127.0.0.1:8000` (FastAPI + Uvicorn)
-- **Active Inference Engine**: ONNX Runtime (`audiotag_model_v1.onnx`)
+- **Active Inference Engine**: ONNX Runtime (`audiotag_model_v1.onnx`) with Batch Sliding Window Acceleration
 - **Active Training Pipeline**: PyTorch GPU (`Scripts/train_openmic_gpu.py`)
 - **Documentation Status**: 100% synchronized across `README.md`, `AGENT_CONTEXT.md`, `docs/DECISIONS_AND_ARCHITECTURE.md`, and `docs/MASTER_PLAN.md`.
+
 

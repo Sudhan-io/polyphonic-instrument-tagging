@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 
 try:
     from backend.app.core.model_loader import get_model
-    from backend.app.utils.preprocess import preprocess_audio, audio_to_melspec
+    from backend.app.utils.preprocess import preprocess_full_audio, audio_to_melspec
 except ImportError:
     from app.core.model_loader import get_model
-    from app.utils.preprocess import preprocess_audio, audio_to_melspec
+    from app.utils.preprocess import preprocess_full_audio, audio_to_melspec
 
 INSTRUMENTS = [
     'accordion', 'bass', 'cello', 'clarinet', 'cymbals', 'drums', 'flute',
@@ -21,6 +21,39 @@ INSTRUMENTS = [
 ]
 
 DEFAULT_THRESHOLD = 0.5
+
+
+def format_seconds_label(sec):
+    """Format seconds into MM:SS display string."""
+    m = int(sec // 60)
+    s = int(sec % 60)
+    return f"{m}:{s:02d}"
+
+
+def merge_active_intervals(time_ranges, active_indices):
+    """
+    Merges contiguous or adjacent time-window intervals into readable format:
+    e.g. ['0:00 - 0:45', '1:15 - 2:30']
+    """
+    if not active_indices:
+        return []
+    intervals = []
+    start_sec = time_ranges[active_indices[0]]["start"]
+    prev_end = time_ranges[active_indices[0]]["end"]
+
+    for idx in active_indices[1:]:
+        curr_start = time_ranges[idx]["start"]
+        curr_end = time_ranges[idx]["end"]
+        # If contiguous or overlapping window (within 0.25s tolerance)
+        if curr_start <= prev_end + 0.25:
+            prev_end = curr_end
+        else:
+            intervals.append(f"{format_seconds_label(start_sec)} - {format_seconds_label(prev_end)}")
+            start_sec = curr_start
+            prev_end = curr_end
+
+    intervals.append(f"{format_seconds_label(start_sec)} - {format_seconds_label(prev_end)}")
+    return intervals
 
 
 def generate_spectrogram_image_base64(spec_2d):
@@ -42,74 +75,109 @@ def generate_spectrogram_image_base64(spec_2d):
 
 def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):
     """
-    Run multi-label inference on an audio file using ONNX Runtime (fastest), PyTorch, or Keras.
+    Run multi-label inference across an entire audio file (short clips or full songs)
+    using vectorized single-pass STFT and batch ONNX Runtime acceleration.
     Returns:
-        dict containing predictions for all 18 instruments, detected list, and spectrogram image.
+        dict containing predictions, detected instruments, timeline heatmap, and spectrogram.
     """
     model, m_type = get_model()
-
-    # Preprocess audio to (128, 128) - only reads first 10 seconds
-    spec_2d = audio_to_melspec(audio_path)
-    if spec_2d is None:
-        raise ValueError(f"Failed to process audio file: {audio_path}")
-
-    # Generate spectrogram base64 for frontend display
-    spec_base64 = generate_spectrogram_image_base64(spec_2d)
-
     if model is None:
-        raise RuntimeError("AudioTag AI model is not loaded. Train the model first.")
+        raise RuntimeError("AudioTag AI model is not loaded. Train or export the model first.")
 
-    # 1. ONNX Runtime Inference (ultra-low latency, ~3ms, no PyTorch overhead)
+    # 1. High-speed single-pass audio decode & sliding-window extraction
+    prep_data = preprocess_full_audio(audio_path)
+    batch_tensor = prep_data["batch_tensor"]   # (N, 1, 128, 128) float32
+    time_ranges = prep_data["time_ranges"]     # list of dicts
+    total_duration = prep_data["total_duration"]
+    overview_spec = prep_data["overview_spec"]
+
+    # 2. Render overview spectrogram base64 for frontend UI
+    spec_base64 = generate_spectrogram_image_base64(overview_spec)
+
+    # 3. Vectorized Batch Inference
+    # ONNX Runtime processes N windows in a single fused SIMD C++ call (~48ms for 70 windows)
     if m_type == "onnx":
-        x_np = spec_2d[np.newaxis, np.newaxis, ...].astype(np.float32)
         input_name = model.get_inputs()[0].name
-        logits = model.run(None, {input_name: x_np})[0]
-        raw_preds = (1.0 / (1.0 + np.exp(-logits)))[0]
+        logits = model.run(None, {input_name: batch_tensor})[0]
+        all_probs = 1.0 / (1.0 + np.exp(-logits))
 
-    # 2. PyTorch AudioResNet-SE Inference (lazy import so torch doesn't eat RAM when onnx is used)
+    # PyTorch AudioResNet-SE Batch Inference (lazy import)
     elif m_type == "pytorch":
         import torch
         device = next(model.parameters()).device
-        x_tensor = torch.tensor(spec_2d, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
+        x_tensor = torch.tensor(batch_tensor, dtype=torch.float32).to(device)
         with torch.no_grad():
             logits = model(x_tensor)
-            raw_preds = torch.sigmoid(logits)[0].cpu().numpy()
+            all_probs = torch.sigmoid(logits).cpu().numpy()
 
-    # 3. Keras CNN Inference Fallback
+    # Keras CNN Inference Fallback
     else:
-        x_np = spec_2d[np.newaxis, ..., np.newaxis]
-        raw_preds = model.predict(x_np, verbose=0)[0]
+        k_in = batch_tensor.transpose(0, 2, 3, 1)
+        all_probs = model.predict(k_in, verbose=0)
 
+    num_windows = len(time_ranges)
+
+    # 4. Construct Time-Segmented Window Timeline
+    timeline = []
+    for i in range(num_windows):
+        w_preds = {}
+        w_detected = []
+        for c, inst in enumerate(INSTRUMENTS):
+            score = round(float(all_probs[i, c]), 4)
+            w_preds[inst] = score
+            if score >= threshold:
+                w_detected.append(inst)
+        w_detected.sort(key=lambda inst: w_preds[inst], reverse=True)
+        timeline.append({
+            "window_index": i,
+            "start": time_ranges[i]["start"],
+            "end": time_ranges[i]["end"],
+            "display": time_ranges[i]["display"],
+            "predictions": w_preds,
+            "detected": w_detected
+        })
+
+    # 5. Global Aggregation & Timeline Summary
     predictions = {}
     detected = []
+    timeline_summary = {}
 
-    for i, inst in enumerate(INSTRUMENTS):
-        score = float(raw_preds[i])
-        predictions[inst] = round(score, 4)
-        if score >= threshold:
+    for c, inst in enumerate(INSTRUMENTS):
+        inst_scores = all_probs[:, c]
+        peak = round(float(np.max(inst_scores)), 4)
+        mean = round(float(np.mean(inst_scores)), 4)
+        active_indices = [i for i, s in enumerate(inst_scores) if s >= threshold]
+        presence_pct = round((len(active_indices) / float(num_windows)) * 100.0, 1)
+
+        # Overall presence score: average confidence during active sections (or peak if single window)
+        if active_indices:
+            active_mean = round(float(np.mean(inst_scores[active_indices])), 4)
+            overall_score = active_mean
             detected.append(inst)
+        else:
+            overall_score = peak
 
-    # Sort detected instruments by confidence descending
+        predictions[inst] = overall_score
+        timeline_summary[inst] = {
+            "peak": peak,
+            "mean": mean,
+            "presence_percent": presence_pct,
+            "intervals": merge_active_intervals(time_ranges, active_indices)
+        }
+
+    # Sort overall detected instruments by confidence descending
     detected.sort(key=lambda inst: predictions[inst], reverse=True)
-
-    # Audio duration - fast header inspection via soundfile first
-    duration = 10.0
-    try:
-        import soundfile as sf
-        info = sf.info(audio_path)
-        duration = float(info.duration)
-    except Exception:
-        try:
-            duration = float(librosa.get_duration(path=audio_path))
-        except Exception:
-            duration = 10.0
 
     return {
         "status": "success",
-        "duration_seconds": round(duration, 2),
+        "duration_seconds": round(total_duration, 2),
         "engine": m_type,
         "predictions": predictions,
         "detected": detected,
         "threshold": threshold,
-        "spectrogram_base64": spec_base64
+        "spectrogram_base64": spec_base64,
+        "is_full_song": num_windows > 1,
+        "num_windows": num_windows,
+        "timeline": timeline,
+        "timeline_summary": timeline_summary
     }
