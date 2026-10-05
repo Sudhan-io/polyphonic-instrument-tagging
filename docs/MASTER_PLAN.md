@@ -202,8 +202,10 @@ AudioTag-AI/
 │
 └── docs/
     ├── DECISIONS_AND_ARCHITECTURE.md  # Comprehensive technical decisions log
-    └── MASTER_PLAN.md                 # This system specification
+    ├── MASTER_PLAN.md                 # This system specification
+    └── TECHNICAL_QA_DOSSIER.md        # Exhaustive 50-Question Technical Interview Dossier
 ```
+
 
 ---
 

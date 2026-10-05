@@ -167,10 +167,28 @@ AudioTag-AI/
 │
 └── docs/
     ├── MASTER_PLAN.md            # Comprehensive project roadmap & milestones
-    └── DECISIONS_AND_ARCHITECTURE.md # Complete architectural decisions log
+    ├── DECISIONS_AND_ARCHITECTURE.md # Complete architectural decisions log
+    └── TECHNICAL_QA_DOSSIER.md   # Exhaustive 50-Question Technical Interview & Systems Guide
 ```
 
 ---
+
+## Deep Technical Q&A & Interview Dossier
+
+For engineers, recruiters, and hiring managers seeking a granular breakdown of every technical decision, trade-off, and mathematical formula across this system, see the **[Technical Q&A & Interview Dossier](docs/TECHNICAL_QA_DOSSIER.md)**.
+
+It contains **50 comprehensive, in-depth questions and answers (each 50+ words)** with exact benchmarks, mathematical proofs, and "why / why not" architectural analyses spanning:
+- **Section 1: Problem Formulation & Core Paradigm** (Multi-label sigmoids, polyphonic frequency overlap, taxonomy selection)
+- **Section 2: Neural Architecture & Deep Learning Design** (AudioResNet-SE, Squeeze-and-Excitation attention, Dual GAP+GMP, SpecAugment, AMP FP16)
+- **Section 3: Loss Function, Optimization & Class Imbalance** (`BCEWithLogitsLoss` stability, `pos_weight` derivation, Macro vs Micro AUROC)
+- **Section 4: Digital Signal Processing (DSP) & Acoustic Features** (22,050 Hz Nyquist, 128 Mel bands, Heisenberg uncertainty, precomputed `MEL_BASIS` 21x speedup, `soxr` SIMD)
+- **Section 5: Full-Song Vectorized Sliding-Window Analysis** (Single-pass STFT, 2D matrix frame slicing, dynamic batch ONNX, interval merging)
+- **Section 6: Inference Acceleration & ONNX Runtime** (Graph export, operator fusion, 3.11 ms latency, 4.74x speedup, `0.00000000` numerical parity)
+- **Section 7: Cloud Deployment, Docker & Resource Optimization** (Render 512MB RAM optimization, lazy PyTorch loading, `ffmpeg`/`libsndfile1` containerization)
+- **Section 8: Web Architecture, API Security & Editorial UX** (Bespoke FastAPI + Vanilla JS, Web Audio API synthesis, CSRF/DoS guards, Georgia serif design)
+
+---
+
 
 ## Quickstart Guide
 
