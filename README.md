@@ -10,7 +10,8 @@
 
 > **Live Web Application:** [https://polyphonic-instrument-tagging.onrender.com/](https://polyphonic-instrument-tagging.onrender.com/)  
 > **Interactive API Documentation (Swagger):** [https://polyphonic-instrument-tagging.onrender.com/docs](https://polyphonic-instrument-tagging.onrender.com/docs)  
-> **Service Health Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)
+> **Service Health Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)  
+> **Technical Q&A & Interview Dossier (108 Questions):** [docs/TECHNICAL_QA_DOSSIER.md](docs/TECHNICAL_QA_DOSSIER.md)
 
 AudioTag AI is an acoustic multi-label recognition system that analyzes complex polyphonic music recordings and simultaneously detects the presence of up to 18 instruments.
 
@@ -331,3 +332,22 @@ The repository includes a production [`Dockerfile`](Dockerfile), [`render.yaml`]
 - **Evaluation Metric:** Multi-label Macro AUROC (Current checkpoint: **0.8989**).
 - **Inference Latency:** **3.11 ms** per 10-second audio track via ONNX Runtime (**4.74x faster** than PyTorch CPU).
 - **Full-Song Analysis:** **1.53 s** for a 3.5-minute song (71 sliding windows in **48.2 ms** batch inference).
+
+---
+
+## Technical Q&A & Interview Dossier (108 Questions)
+
+An exhaustive, 108-question technical guide covering every aspect of the AudioTag AI engineering stack—including DSP mathematics, deep learning architectures, loss formulations, sliding-window analysis, memory profiling, ONNX acceleration, cloud containerization, security, and edge-case failure modes—is documented in the project repository:
+
+**Read the Full Dossier:** [docs/TECHNICAL_QA_DOSSIER.md](docs/TECHNICAL_QA_DOSSIER.md)
+
+### Dossier Thematic Sections:
+1. **[Problem Framing, Music Information Retrieval (MIR) & Organology](docs/TECHNICAL_QA_DOSSIER.md#section-1-problem-framing-music-information-retrieval-mir--organology)**: Multi-label vs. multi-class, overlapping frequencies, 18 Hornbostel-Sachs classes, AMT vs. source separation, synth vs. acoustic timbre. (Q1 - Q10)
+2. **[Neural Architecture & Deep Learning Engineering](docs/TECHNICAL_QA_DOSSIER.md#section-2-neural-architecture--deep-learning-engineering)**: AudioResNet-SE, Squeeze-and-Excitation attention mathematics, Dual Pooling (GAP+GMP), SpecAugment, AMP FP16, GELU vs. ReLU. (Q11 - Q22)
+3. **[Loss Function, Optimization & Class Imbalance](docs/TECHNICAL_QA_DOSSIER.md#section-3-loss-function-optimization--class-imbalance)**: BCEWithLogitsLoss numerical stability, pos_weight derivation, Macro vs. Micro AUROC, AdamW vs. SGD, Cosine Annealing. (Q23 - Q32)
+4. **[Digital Signal Processing (DSP) & Acoustic Features](docs/TECHNICAL_QA_DOSSIER.md#section-4-digital-signal-processing-dsp--acoustic-features)**: 22,050 Hz Nyquist sampling, 128 Mel bands, n_fft=2048 / hop_length=512 Heisenberg-Gabor tradeoff, precomputed MEL_BASIS, soxr SIMD decimation. (Q33 - Q46)
+5. **[Full-Song Vectorized Sliding-Window Analysis Engine](docs/TECHNICAL_QA_DOSSIER.md#section-5-full-song-vectorized-sliding-window-analysis-engine)**: Single-pass STFT mathematical parity, 2D matrix frame slicing, 50% temporal overlap, peak vs. active-mean aggregation, interval merging. (Q47 - Q60)
+6. **[Inference Acceleration & ONNX Runtime](docs/TECHNICAL_QA_DOSSIER.md#section-6-inference-acceleration--onnx-runtime)**: Operator fusion, dynamic batching, 3.11 ms single clip latency, 48.2 ms 71-window batch inference, lazy PyTorch loading. (Q61 - Q72)
+7. **[Cloud Deployment, Docker & Resource Optimization](docs/TECHNICAL_QA_DOSSIER.md#section-7-cloud-deployment-docker--resource-optimization)**: Render 512 MB RAM budget, multi-stage Docker build, ffmpeg/libsndfile integration, horizontal scaling, zero-cost production. (Q73 - Q86)
+8. **[Web Architecture, API Security & Editorial UX](docs/TECHNICAL_QA_DOSSIER.md#section-8-web-architecture-api-security--editorial-ux)**: 50 MB streaming guard, magic byte MIME sniffing, zero-latency client-side threshold scrubbing, Web Audio API synthesis. (Q87 - Q98)
+9. **[Edge Cases, Failure Modes & Interview Curveballs](docs/TECHNICAL_QA_DOSSIER.md#section-9-edge-cases-failure-modes--interview-curveballs)**: Heavy distortion/overdrive, dense multi-timbral polyphony, extreme low-end masking, live microphone streaming, scaling to 10k RPM. (Q99 - Q108)
