@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}AudioTag AI — Multi-Label Audio Engine{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div>
+      <p class="kicker"><span class="pulse"></span> ACOUSTIC INTELLIGENCE / MULTI-LABEL</p>
+      <h1>Music analyzed,<br><em>layer by layer.</em></h1>
+      <p class="hero-copy">
+        AudioTag AI processes complex, real-world polyphonic audio recordings and simultaneously detects up to 18 active instruments in the mix using deep Log-Mel convolutional modeling.
+      </p>
+    </div>
+    <div class="hero-note">
+      <span class="note-label">Architecture</span>
+      <strong>18 Independent<br>Sigmoids.</strong>
+      <span>Trained on OpenMIC-2018</span>
+    </div>
+  </section>
+
+  <!-- Status Banner -->
+  <div class="banner">
+    <div class="banner-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <div class="banner-body">
+      <strong>Multi-Label Audio Engine Active</strong>
+      <span>Supports .wav, .mp3, .ogg, and .flac formats. Upload any audio track below for instantaneous 18-channel instrument extraction.</span>
+    </div>
+    <span class="badge badge-coral">18 Classes</span>
+  </div>
+
+  <!-- Audio Studio Section -->
+  <section id="analyzer" style="margin-bottom: 50px;">
+    <div class="section-heading">
+      <div>
+        <p class="kicker">ACOUSTIC STUDIO</p>
+        <h2>Input audio stream</h2>
+      </div>
+      <div style="font-size: 13px; color: var(--muted);">
+        Sample Rate: 22,050 Hz &bull; 128 Mel Bands
+      </div>
+    </div>
+
+    <!-- Dropzone Card -->
+    <div class="card" style="padding: 24px;">
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="audio-input" accept=".wav,.mp3,.ogg,.flac" style="display: none;">
+        <div class="dropzone-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <h3>Select or drag audio track</h3>
+        <p>Drop a .wav, .mp3, .ogg, or .flac file here to begin multi-label analysis</p>
+      </div>
+
+      <!-- Selected File & Player Preview (Hidden until file selected) -->
+      <div id="file-preview-card" style="display: none; margin-top: 18px;">
+        <div class="audio-player-wrap">
+          <div style="flex-shrink: 0;">
+            <div style="font-size: 13px; font-weight: 700; color: var(--ink);" id="preview-filename">track.mp3</div>
+            <div style="font-size: 11px; color: var(--muted);" id="preview-filesize">0 MB</div>
+          </div>
+          <audio id="audio-player" controls style="flex: 1;"></audio>
+          <button type="button" id="btn-analyze" class="coral-button">
+            <span>Analyze Track</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results Section (Hidden until analyzed) -->
+  <section id="results-section" style="display: none; margin-bottom: 50px;">
+    <div class="section-heading">
+      <div>
+        <p class="kicker">INFERENCE REPORT</p>
+        <h2>Detected instrument profile</h2>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase;">Cutoff:</span>
+        <div class="slider-wrap" style="width: 140px;">
+          <input type="range" id="threshold-slider" min="0.10" max="0.90" step="0.05" value="0.50">
+          <span id="threshold-label" style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px; color:var(--coral);">0.50</span>
+        </div>
+        <button id="btn-export-json" class="outline-button" style="padding: 6px 12px; font-size: 12px;">
+          Export JSON
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="metrics-row">
+      <div class="metric-item metric-item-coral">
+        <div class="metric-num metric-num-coral" id="metric-active-count">0 / 18</div>
+        <div class="metric-caption">Active Instruments</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-num" id="metric-top-instrument">—</div>
+        <div class="metric-caption" id="metric-top-score">Leading Signal</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-num" id="metric-duration">10.0s</div>
+        <div class="metric-caption">Acoustic Duration</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-num" style="color: #478651;">Valid</div>
+        <div class="metric-caption">Model Convergence</div>
+      </div>
+    </div>
+
+    <!-- Layout: 18 Instruments Grid + Mel Spectrogram -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <!-- Left: 18 Instruments -->
+      <div class="card">
+        <h3 style="font: 600 18px Georgia, serif; margin: 0 0 16px;">Instrument Probability Spectrum</h3>
+        <div id="instruments-container" class="instrument-grid" style="grid-template-columns: 1fr;">
+          <!-- Dynamically populated via JS -->
+        </div>
+      </div>
+
+      <!-- Right: Mel Spectrogram Display -->
+      <div class="card">
+        <h3 style="font: 600 18px Georgia, serif; margin: 0 0 16px;">Log-Mel Spectrogram (128 &times; 128)</h3>
+        <div style="background: #111417; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid var(--line);">
+          <img id="spectrogram-image" src="" alt="Acoustic Spectrogram" style="max-width: 100%; border-radius: 6px; display: block; margin: 0 auto;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #88938e; margin-top: 8px; font-family:'JetBrains Mono',monospace;">
+            <span>0.0s</span>
+            <span>Time Frames (128) &bull; fmax: 8000 Hz</span>
+            <span>10.0s</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 18px; padding: 14px; background: #fafbfa; border: 1px solid var(--line); border-radius: 8px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Model Inspection</div>
+          <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+            Input mapped via <code>audio_to_melspec()</code> with 128 Mel frequency bins and power-to-dB conversion. Sigmoid confidence scores represent independent probability distributions per instrument class.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 Taxonomy Section -->
+  <section id="taxonomy" style="margin-bottom: 50px;">
+    <div class="section-heading">
+      <div>
+        <p class="kicker">BENCHMARK LABELS & ACOUSTIC INTEL</p>
+        <h2>The 18 target instruments</h2>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="sort-toolbar">
+          <button type="button" id="sort-alpha-btn" class="sort-btn active">A &rarr; Z</button>
+          <button type="button" id="sort-prob-btn" class="sort-btn" disabled title="Analyze a track to sort by probability">By Detected %</button>
+        </div>
+        <div class="badge badge-coral">OpenMIC-2018 Standard</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span style="font-size: 13px; color: var(--muted);">Click any instrument to view acoustic anatomy, frequency range, and how it sounds in everyday life.</span>
+      </div>
+      <div id="taxonomy-grid" class="instrument-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
+        <div class="inst-card" data-instrument="accordion"><div class="inst-top"><span class="inst-name">Accordion</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Aerophone</span></div>
+        <div class="inst-card" data-instrument="bass"><div class="inst-top"><span class="inst-name">Bass</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Chordophone</span></div>
+        <div class="inst-card" data-instrument="cello"><div class="inst-top"><span class="inst-name">Cello</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Bowed String</span></div>
+        <div class="inst-card" data-instrument="clarinet"><div class="inst-top"><span class="inst-name">Clarinet</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Woodwind</span></div>
+        <div class="inst-card" data-instrument="cymbals"><div class="inst-top"><span class="inst-name">Cymbals</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Idiophone</span></div>
+        <div class="inst-card" data-instrument="drums"><div class="inst-top"><span class="inst-name">Drums</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Membranophone</span></div>
+        <div class="inst-card" data-instrument="flute"><div class="inst-top"><span class="inst-name">Flute</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Woodwind</span></div>
+        <div class="inst-card" data-instrument="guitar"><div class="inst-top"><span class="inst-name">Guitar</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Plucked String</span></div>
+        <div class="inst-card" data-instrument="mallet_percussion"><div class="inst-top"><span class="inst-name">Mallet Percussion</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Tuned Percussion</span></div>
+        <div class="inst-card" data-instrument="mandolin"><div class="inst-top"><span class="inst-name">Mandolin</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Chordophone</span></div>
+        <div class="inst-card" data-instrument="piano"><div class="inst-top"><span class="inst-name">Piano</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Keyboard</span></div>
+        <div class="inst-card" data-instrument="saxophone"><div class="inst-top"><span class="inst-name">Saxophone</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Single-Reed</span></div>
+        <div class="inst-card" data-instrument="synthesizer"><div class="inst-top"><span class="inst-name">Synthesizer</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Electronic</span></div>
+        <div class="inst-card" data-instrument="trombone"><div class="inst-top"><span class="inst-name">Trombone</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Brass</span></div>
+        <div class="inst-card" data-instrument="trumpet"><div class="inst-top"><span class="inst-name">Trumpet</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Brass</span></div>
+        <div class="inst-card" data-instrument="ukulele"><div class="inst-top"><span class="inst-name">Ukulele</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Plucked String</span></div>
+        <div class="inst-card" data-instrument="violin"><div class="inst-top"><span class="inst-name">Violin</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Bowed String</span></div>
+        <div class="inst-card" data-instrument="voice"><div class="inst-top"><span class="inst-name">Voice</span><span class="inst-hover-hint">Inspect &rarr;</span></div><span class="badge">Vocal Signal</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ==============================================================================
+     INSTRUMENT INTEL DOSSIER MODAL
+     ============================================================================== -->
+<div id="instrument-modal" class="modal-backdrop" aria-hidden="true" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div>
+        <p class="kicker" style="margin-bottom: 4px;">ACOUSTIC DOSSIER & SONIC PROFILE</p>
+        <h2 id="modal-inst-name">Instrument Name</h2>
+        <span id="modal-inst-family" class="badge badge-coral">Instrument Family</span>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" id="btn-play-timbre" class="btn-play-timbre" title="Hear characteristic acoustic tone">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span id="timbre-btn-text">Play Timbre</span>
+        </button>
+        <button type="button" id="modal-close-btn" class="modal-close-btn" aria-label="Close dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <!-- Live Track Prediction Status (shown if track is active) -->
+      <div id="modal-live-status" class="modal-live-status" style="display: none;">
+        <div class="modal-live-status-top">
+          <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);">Live Track Inference</span>
+          <span id="modal-prediction-badge" class="badge">Score</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <div style="font: 700 24px Georgia, serif;" id="modal-prediction-pct">0%</div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--muted);" id="modal-prediction-rank">Rank #1 in mix</div>
+        </div>
+        <div class="bar-track">
+          <div id="modal-prediction-bar" class="bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Acoustic Fingerprint Chips -->
+      <div class="fingerprint-row">
+        <div class="fingerprint-chip">
+          <span class="label">Attack</span>
+          <span id="modal-chip-attack">Soft Breath</span>
+        </div>
+        <div class="fingerprint-chip">
+          <span class="label">Timbre Feel</span>
+          <span id="modal-chip-feel">Airy & Silky</span>
+        </div>
+        <div class="fingerprint-chip">
+          <span class="label">Fundamental</span>
+          <span id="modal-chip-freq">260 – 2,500 Hz</span>
+        </div>
+      </div>
+
+      <!-- Three-Layer Everyday Sound Profile -->
+      <div class="daily-sound-box">
+        <!-- 1. Physical Metaphor -->
+        <div class="daily-sound-section">
+          <div class="daily-sound-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Everyday Life Sound Analogy
+          </div>
+          <p id="modal-daily-sound" class="daily-sound-quote">"Description of everyday sound."</p>
+        </div>
+
+        <!-- 2. Spotting in the Mix -->
+        <div class="daily-sound-section">
+          <div class="daily-sound-tag" style="color: var(--ink);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h5l3 8 4-16 3 8h5"></path></svg>
+            How to Spot It in a Song Mix
+          </div>
+          <p id="modal-spot-mix" class="daily-sound-text">What your ears should focus on when this instrument plays.</p>
+        </div>
+
+        <!-- 3. Iconic Earworm Cue -->
+        <div class="daily-sound-section">
+          <div class="daily-sound-tag" style="color: #478651;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Recognizable Listening Cues
+          </div>
+          <div id="modal-famous-cue" class="daily-sound-cue">Famous songs where you can instantly hear it.</div>
+        </div>
+      </div>
+
+      <!-- Acoustic Specs Grid -->
+      <div class="modal-spec-grid">
+        <div class="spec-cell">
+          <div class="spec-cell-label">Frequency Bandwidth</div>
+          <div id="modal-frequency" class="spec-cell-val">—</div>
+        </div>
+        <div class="spec-cell">
+          <div class="spec-cell-label">Harmonic Character</div>
+          <div id="modal-timbre" class="spec-cell-val">—</div>
+        </div>
+        <div class="spec-cell">
+          <div class="spec-cell-label">Historical Origin</div>
+          <div id="modal-origin" class="spec-cell-val">—</div>
+        </div>
+        <div class="spec-cell">
+          <div class="spec-cell-label">Musical Repertoire</div>
+          <div id="modal-context" class="spec-cell-val">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+# ============================================================
+# AudioTag AI — Project Requirements
+# Python 3.10+ | PyTorch 2.x + CUDA 12.x (Windows GPU)
+# ============================================================
+
+# --- Core Web Framework ---
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# --- Deep Learning Engines ---
+# Primary high-speed inference engine (fastest graph runtime):
+onnx>=1.15.0
+onnxruntime>=1.17.0
+
+# Native PyTorch (training & fallback):
+# Install the CUDA-specific wheel from pytorch.org if needed:
+# pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1.0
+torchaudio>=2.1.0
+
+# --- Audio Processing ---
+librosa==0.10.1
+imageio-ffmpeg>=0.4.9   # Bundles ffmpeg binary for MP3/M4A decoding on Windows
+
+# --- Numerical / Scientific ---
+numpy==1.26.4
+matplotlib>=3.7.0
+
+# --- Training Scripts Only (not needed at inference time) ---
+scikit-learn>=1.3.0
+tqdm>=4.66.0
+
+# --- Optional Legacy Fallback (NOT required for primary model) ---
+# tensorflow==2.15.0    # CPU-only on Windows, only loads audiotag_model_v1.keras

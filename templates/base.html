@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AudioTag AI — Multi-Label Audio Engine{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="AudioTag AI Home">
+        <span class="brand-mark">A</span>
+        <span>AUDIOTAG</span>
+      </a>
+
+      <nav class="nav-links">
+        <a href="#analyzer" class="active">Acoustic Studio</a>
+        <a href="#taxonomy">18 Taxonomy</a>
+        <a href="/docs" target="_blank" rel="noopener noreferrer">API Docs</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <div class="role-indicator">
+          <span class="status-dot"></span>
+          <span>OpenMIC-2018</span>
+          <span style="color: var(--muted); font-weight: 400;">· 18-Way Sigmoid</span>
+        </div>
+        <a href="#analyzer" class="coral-button" style="text-decoration: none; padding: 7px 12px; font-size: 12px;">
+          Analyze Audio
+        </a>
+      </div>
+    </header>
+
+    <main id="top">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <p>AudioTag AI &bull; Deep Learning Polyphonic Music Tagging &bull; Built on OpenMIC-2018</p>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

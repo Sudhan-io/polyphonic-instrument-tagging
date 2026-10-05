@@ -1,20 +1,59 @@
 # ===============================
-# Dataset & Generated Files
+# Dataset & Large Files
 # ===============================
-Work/
-Processed/
+Scripts/openmic-2018/
+Scripts/openmic-2018-v1.0.0.tgz
+Scripts/training_log.csv
 *.npy
-*.wav
+*.tgz
 *.zip
+
+# ===============================
+# Trained Models (too large for git)
+# ===============================
+backend/app/models/*.keras
+backend/app/models/*.h5
+backend/app/models/*.pt
+backend/app/models/*.onnx
+
+# ===============================
+# Audio Files
+# ===============================
+*.wav
+*.mp3
+*.ogg
+*.flac
 
 # ===============================
 # Python Cache
 # ===============================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
 
 # ===============================
-# OS Junk
+# Virtual Environments
+# ===============================
+venv/
+.venv/
+env/
+.env
+
+# ===============================
+# IDE & OS Junk
 # ===============================
 .DS_Store
 Thumbs.db
+.vscode/
+*.idea/
+
+# ===============================
+# Temp / Export Files
+# ===============================
+tmp*_analysis.*
+*.log
