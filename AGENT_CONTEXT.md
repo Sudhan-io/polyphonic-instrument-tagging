@@ -25,7 +25,10 @@ AudioTag AI is an acoustic deep learning system that analyzes polyphonic music t
 
 ```
 AudioTag-AI/
-├── requirements.txt              # Standard root requirements (ONNX Runtime, PyTorch, FastAPI)
+├── Dockerfile                    # Production container specification (Python 3.10-slim + ffmpeg)
+├── render.yaml                   # Render Blueprint for automatic cloud deployments
+├── Procfile                      # Process declaration for web deployment
+├── requirements.txt              # Standard root dependencies (ONNX Runtime, PyTorch, FastAPI)
 ├── templates/
 │   ├── base.html                 # Editorial shell, topbar, zero-emoji UI
 │   └── index.html                # Native web interface (Acoustic Studio & Dossier modal)
@@ -36,16 +39,16 @@ AudioTag-AI/
 │   └── app/
 │       ├── main.py               # FastAPI server (Restricted CORS, structured logging)
 │       ├── core/
-│       │   ├── model_loader.py   # ONNX Runtime primary loader with PyTorch GPU fallback
+│       │   ├── model_loader.py   # ONNX Runtime primary loader with lazy PyTorch fallback
 │       │   └── inference.py      # 18-class multi-label sigmoid inference + base64 spectrogram
 │       ├── routes/
 │       │   └── analyze.py        # POST /analyze with 50MB upload cap & audio MIME guard
 │       ├── models/
-│       │   ├── audiotag_model_v1.onnx  # Exported ONNX Runtime graph (3.11 ms latency)
-│       │   ├── audiotag_model_v1.pt    # PyTorch GPU AudioResNet-SE checkpoint (AUROC: 0.8989)
+│       │   ├── audiotag_model_v1.onnx  # Exported ONNX Runtime graph (3.11 ms latency, tracked in Git)
+│       │   ├── audiotag_model_v1.pt    # PyTorch GPU AudioResNet-SE checkpoint (AUROC: 0.8989, gitignored)
 │       │   └── audiotag_model_v1.keras # Legacy fallback checkpoint
 │       └── utils/
-│           └── preprocess.py     # torchaudio/librosa Log-Mel spectrogram preprocessing
+│           └── preprocess.py     # torchaudio/librosa 10s direct streaming Log-Mel pipeline
 ├── Scripts/
 │   ├── setup_openmic.py          # OpenMIC-2018 dataset prepper
 │   ├── train_openmic_gpu.py      # PyTorch GPU trainer (AMP FP16, pos_weight, SpecAugment)
@@ -63,5 +66,7 @@ AudioTag-AI/
 1. **CORS**: Restricted to `http://localhost:8000` and `http://127.0.0.1:8000` by default. Can be overridden using `AUDIOTAG_ALLOWED_ORIGINS` environment variable. Never enable `allow_credentials=True` with wildcard origins.
 2. **Upload Guards**: `analyze.py` enforces a 50 MB file size limit and checks for `audio/*` / `video/*` MIME prefixes before disk writes.
 3. **No Legacy NSynth Models**: Old models (`instrunet_model_v3.keras` and `instrunet_condition.keras`) have been permanently removed. Do NOT attempt to reference them.
-4. **PyTorch First**: `model_loader.py` exclusively serves `audiotag_model_v1.pt` onto CUDA if an NVIDIA GPU is available, CPU otherwise.
-5. **No Emojis**: Maintain the editorial aesthetic: Georgia serif headlines, `#f7f8f5` paper background, `#18201d` dark ink, `#ff6b00` vibrant orange accent, and geometric/SVG icons.
+4. **ONNX Runtime First, Lazy PyTorch**: `model_loader.py` exclusively serves `audiotag_model_v1.onnx` by default (~3.11 ms, ~40 MB RAM). PyTorch is wrapped in a lazy import factory so that it is never loaded in cloud containers unless explicitly requested (`AUDIOTAG_ENGINE=pytorch`), preventing out-of-memory errors on 512 MB instances.
+5. **Direct 10.0s Container Streaming**: `preprocess.py` uses `librosa.load(..., duration=10.0)` to stream only the first 10 seconds directly from the media container, eliminating multi-minute sinc-resampling CPU lockups on cloud tiers.
+6. **No Emojis**: Maintain the editorial aesthetic: Georgia serif headlines, `#f7f8f5` paper background, `#18201d` dark ink, `#ff6b00` vibrant orange accent, and geometric/SVG icons.
+

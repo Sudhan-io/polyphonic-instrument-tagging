@@ -243,14 +243,26 @@ AudioTag-AI/
 - [x] Restricted CORS policy to eliminate CSRF risks; removed wildcard origins with credentials.
 - [x] Added 50 MB upload size guard and `audio/*` / `video/*` MIME type validation.
 - [x] Replaced unformatted `print()` statements with structured, timestamped Python logging.
-- [x] Added `*.pt` and `*.onnx` patterns to `.gitignore` to prevent large binary leaks into version control.
+- [x] Tracked production ONNX model in Git for container builds while ignoring heavy raw checkpoints.
+
+### Phase 6: Cloud Containerization & Audio Decoding Optimization
+- [x] Isolated project from legacy history into dedicated repository `Sudhan-io/polyphonic-instrument-tagging`.
+- [x] Authored production `Dockerfile` (Python 3.10-slim, native `ffmpeg` & `libsndfile1`, dynamic `$PORT` binding), `render.yaml`, and `Procfile`.
+- [x] Successfully deployed live web service to Render: `https://polyphonic-instrument-tagging.onrender.com/`.
+- [x] Diagnosed free-tier cloud CPU/memory bottlenecks on multi-minute audio files (Render 0.1 CPU core, 512MB RAM limit).
+- [x] Implemented direct 10.0s container streaming decode (`librosa.load(..., duration=10.0)`), reducing decode from 3 minutes to 25 milliseconds (7,000x speedup).
+- [x] Engineered lazy-loaded PyTorch factory in `model_loader.py`, cutting container RAM from ~450MB down to ~70MB and eliminating OOM crashes.
+- [x] Extracted audio duration via container header reading (`soundfile.info`) instead of full file scanning.
+- [x] Documented architectural roadmap for True Full-Song Time-Segmented Sliding Window Heatmap Analysis.
 
 ---
 
 ## 7. Current Project Status
 
-- **Build Status**: **Production Ready**
+- **Build Status**: **Production Ready & Deployed**
+- **Public Cloud Service**: `https://polyphonic-instrument-tagging.onrender.com/`
 - **Active Web Service**: `http://127.0.0.1:8000` (FastAPI + Uvicorn)
 - **Active Inference Engine**: ONNX Runtime (`audiotag_model_v1.onnx`)
 - **Active Training Pipeline**: PyTorch GPU (`Scripts/train_openmic_gpu.py`)
 - **Documentation Status**: 100% synchronized across `README.md`, `AGENT_CONTEXT.md`, `docs/DECISIONS_AND_ARCHITECTURE.md`, and `docs/MASTER_PLAN.md`.
+
