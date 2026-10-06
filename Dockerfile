@@ -28,8 +28,9 @@ COPY . .
 
 # Render injects $PORT (default 10000) automatically into every Docker container.
 # We read it at container start time and bind uvicorn to whatever Render assigns.
-EXPOSE 10000
+# Expose both 10000 and 8000 for full Render compatibility
+EXPOSE 10000 8000
 
-# Single-process startup: bind to Render-injected $PORT (default 10000).
-# Render auto-detects whichever port the process binds to and routes traffic there.
-CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]
+# Universal multi-port runner: simultaneously listens on $PORT, 10000, and 8000 in a single async process
+CMD ["python", "backend/app/run.py"]
+
