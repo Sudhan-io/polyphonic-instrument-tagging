@@ -105,11 +105,18 @@ def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):
     # 2. Render overview spectrogram base64 for frontend UI
     spec_base64 = generate_spectrogram_image_base64(overview_spec)
 
-    # 3. Vectorized Batch Inference
-    # ONNX Runtime processes N windows in a single fused SIMD C++ call (~48ms for 70 windows)
+    # 3. Micro-Batched Inference (chunks of 8 to prevent memory spikes on Render free tier)
+    MICRO_BATCH = 8
     if m_type == "onnx":
         input_name = model.get_inputs()[0].name
-        logits = model.run(None, {input_name: batch_tensor})[0]
+        if len(batch_tensor) <= MICRO_BATCH:
+            logits = model.run(None, {input_name: batch_tensor})[0]
+        else:
+            chunks = []
+            for b_idx in range(0, len(batch_tensor), MICRO_BATCH):
+                chunk = batch_tensor[b_idx:b_idx + MICRO_BATCH]
+                chunks.append(model.run(None, {input_name: chunk})[0])
+            logits = np.concatenate(chunks, axis=0)
         all_probs = 1.0 / (1.0 + np.exp(-logits))
 
     # PyTorch AudioResNet-SE Batch Inference (lazy import)

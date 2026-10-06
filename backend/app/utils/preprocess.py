@@ -192,10 +192,16 @@ def audio_to_melspec(file_path_or_array, sr=None):
     return mel_norm.astype(np.float32)
 
 
-def preprocess_full_audio(file_path, window_hop_frames=128):
+# 5.0 seconds hop = 215 STFT frames (5.0s * 22050 / 512 = 4.992s)
+DEFAULT_WINDOW_HOP_FRAMES = int(5.0 * SAMPLE_RATE / HOP_LENGTH)
+MAX_ALLOWED_WINDOWS = 45
+
+
+def preprocess_full_audio(file_path, window_hop_frames=None):
     """
     Vectorized single-pass STFT and sliding-window extraction for entire tracks.
-    Runs one single STFT across the audio, then directly slices the 2D spectrogram.
+    Uses high-resolution 5.0-second window hop with a 45-window ceiling to ensure
+    ultra-fast inference and zero memory exhaustion on 512 MB cloud tiers.
     Returns:
         dict containing:
             - batch_tensor: (N, 1, 128, 128) float32 for batch ONNX inference
@@ -203,6 +209,9 @@ def preprocess_full_audio(file_path, window_hop_frames=128):
             - total_duration: float seconds
             - overview_spec: (128, 128) summary spectrogram for visual rendering
     """
+    if window_hop_frames is None:
+        window_hop_frames = DEFAULT_WINDOW_HOP_FRAMES
+
     y, total_duration = load_audio_waveform(file_path, max_duration=300.0)
 
     # If audio is empty or shorter than 0.5s, pad to 10s
@@ -216,6 +225,13 @@ def preprocess_full_audio(file_path, window_hop_frames=128):
     mel_db = librosa.power_to_db(mel, ref=np.max)
 
     total_frames = mel_db.shape[1]
+
+    # Adaptive hop ceiling: ensure window count never exceeds MAX_ALLOWED_WINDOWS (45)
+    if total_frames > IMG_W:
+        estimated_windows = int(np.ceil(total_frames / float(window_hop_frames)))
+        if estimated_windows > MAX_ALLOWED_WINDOWS:
+            window_hop_frames = int(np.ceil(total_frames / float(MAX_ALLOWED_WINDOWS)))
+
     windows = []
     time_ranges = []
 

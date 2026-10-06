@@ -91,8 +91,8 @@ def health_check():
     return {
         "status": "online",
         "service": "AudioTag AI",
-        "version": "1.0.1",
-        "build": "d66f759",
+        "version": "1.0.2",
+        "build": "5s-hop-opt",
         "engine": engine or "onnx",
         "model_loaded": model is not None
     }

@@ -61,31 +61,35 @@ async def analyze_audio(
     if ext not in SUPPORTED_EXTENSIONS:
         ext = ".wav"
 
-    # --- 2. File Size Guard (read into memory with size check) ---
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large ({len(content) // (1024*1024)} MB). Maximum supported upload is 50 MB."
-        )
-
-    if len(content) < 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty or corrupted (under 100 bytes)."
-        )
-
-    # --- 3. Write to Secure Temp File ---
+    # --- 2. Stream Upload Directly to Temp File (Zero RAM Bloat) ---
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
     temp_path = temp_file.name
-    temp_file.close()
+    total_bytes = 0
 
     try:
-        with open(temp_path, "wb") as buf:
-            buf.write(content)
+        CHUNK_SIZE = 64 * 1024
+        while True:
+            chunk = await file.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                temp_file.close()
+                raise HTTPException(
+                    status_code=413,
+                    detail="File too large. Maximum supported upload is 50 MB."
+                )
+            temp_file.write(chunk)
+        temp_file.close()
+
+        if total_bytes < 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is empty or corrupted (under 100 bytes)."
+            )
 
         logger.info("Running non-blocking inference on '%s' (%d bytes, threshold=%.2f)",
-                    filename, len(content), threshold)
+                    filename, total_bytes, threshold)
 
         # Offload synchronous CPU inference to threadpool to prevent blocking the async event loop
         results = await run_in_threadpool(predict_instruments, temp_path, threshold=threshold)
