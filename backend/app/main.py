@@ -87,8 +87,9 @@ async def home(request: Request):
 
 @app.get("/api/health")
 def health_check():
+    model, _ = get_model()
     return {
         "status": "online",
         "service": "AudioTag AI",
-        "model_loaded": get_model() is not None
+        "model_loaded": model is not None
     }
