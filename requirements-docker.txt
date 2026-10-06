@@ -1,0 +1,11 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+onnxruntime>=1.17.0
+librosa==0.10.1
+soundfile>=0.12.1
+soxr>=0.3.7
+imageio-ffmpeg>=0.4.9
+numpy==1.26.4
+matplotlib>=3.7.0
+pillow>=10.0.0
