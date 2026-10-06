@@ -7,6 +7,8 @@ services:
     region: oregon
     healthCheckPath: /api/health
     envVars:
+      - key: PORT
+        value: 8000
       - key: AUDIOTAG_ENGINE
         value: onnx
       - key: AUDIOTAG_ALLOWED_ORIGINS

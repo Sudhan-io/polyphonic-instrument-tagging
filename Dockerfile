@@ -12,11 +12,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install native audio decoders (ffmpeg & libsndfile for MP3/OGG/FLAC/M4A)
+# Install native audio decoders and networking utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
     curl \
+    socat \
     && rm -rf /var/lib/apt/lists/*
 
 # Install optimized production dependencies (ONNX Runtime, sub-30s build)
@@ -26,8 +27,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files (respecting .dockerignore)
 COPY . .
 
-# Expose Render standard port 10000 and standard port 8000
-EXPOSE 10000 8000
+# Expose both Render default ports (8000 and 10000)
+EXPOSE 8000 10000
 
-# Launch FastAPI via uvicorn binding to dynamic $PORT (defaults to 10000 on Render)
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]
+# Dual-port listener: serves on $PORT (default 8000) while mirroring port 10000 via socat
+CMD ["sh", "-c", "PORT=${PORT:-8000}; if [ \"$PORT\" = \"8000\" ]; then socat TCP-LISTEN:10000,fork,reuseaddr TCP:127.0.0.1:8000 & else socat TCP-LISTEN:8000,fork,reuseaddr TCP:127.0.0.1:$PORT & fi; exec uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT --workers 1"]
