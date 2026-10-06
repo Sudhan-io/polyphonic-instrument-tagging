@@ -372,5 +372,30 @@ To provide comprehensive instrumentation analysis across entire 3-to-5 minute tr
 | **Full-Song Analysis** | Vectorized Single-Pass Sliding Window | Window-by-Window Re-decoding | Computes STFT once, slices 2D spectrogram (2.7ms), and batches ONNX (48ms). |
 | **Audio Loading** | `soundfile` + `soxr` SIMD | Full Naive Sinc Resampling | Eliminates 3-minute CPU lockups on 0.1 core cloud tiers. |
 | **Memory Architecture**| Lazy PyTorch Import | Eager Top-Level Import | Reduces cloud container memory from ~450 MB to ~70 MB, preventing OOM. |
+| **Cloud Concurrency** | Non-Blocking `run_in_threadpool` | Blocking Sync in `async def` | Keeps async event loop responsive for Docker health checks. |
+| **CORS Policy** | Permissive Origin (`*`) | Localhost-Only Default | Eliminates client-side "Failed to fetch" errors on production domain. |
+
+---
+
+## 13. Production Cloud Reliability: Render Timeout, CORS & Async Event Loop Optimization
+
+### Root Cause Analysis of Cloud Failures
+When deployed to Render's free tier, users encountered intermittent "Failed to fetch", HTTP 415 errors, and long analysis delays. An end-to-end audit revealed three distinct bottlenecks:
+
+1. **CORS Origin Filtering on Render Production Domain:**
+   - **Problem:** `ALLOWED_ORIGINS` in `main.py` defaulted strictly to `localhost:8000`. When web clients accessed the site via `https://polyphonic-instrument-tagging.onrender.com`, the browser sent an `Origin` header that was rejected by FastAPI's CORSMiddleware, omitting `Access-Control-Allow-Origin` and causing the browser to throw a `TypeError: Failed to fetch`.
+   - **Resolution:** Added wildcard fallback (`ALLOWED_ORIGINS = ["*"]` with `allow_credentials=False`) and set `AUDIOTAG_ALLOWED_ORIGINS: "*"` in `render.yaml`.
+
+2. **False HTTP 415 Media Type Rejections:**
+   - **Problem:** Browsers often send `application/ogg` (per RFC 5334), `application/x-flac`, or generic `application/octet-stream` for drag-and-dropped audio. The backend strictly required MIME strings starting with `audio/` or `video/`, rejecting valid audio files with `HTTP 415 Unsupported Media Type`.
+   - **Resolution:** Broadened MIME inspection in `analyze.py` to allow `application/ogg`, `application/flac`, and `application/octet-stream` alongside audio file extension verification (`.wav`, `.mp3`, `.ogg`, `.flac`, `.m4a`).
+
+3. **Event Loop Blocking During CPU Inference:**
+   - **Problem:** `analyze_audio` was an `async def` endpoint executing synchronous CPU-bound operations (`predict_instruments()`) directly on the single-threaded asyncio event loop. Processing multi-minute songs pegged the CPU and froze the event loop for several seconds, causing Render's Docker container health check probes to time out and trigger restarts.
+   - **Resolution:** Offloaded inference to a separate Starlette worker thread via `await run_in_threadpool(predict_instruments, temp_path, threshold)`, keeping the async event loop responsive.
+
+4. **Container Build Bloat & Missing Codecs:**
+   - **Problem:** Linux Docker builds running `pip install -r requirements.txt` pulled down 2.5 GB of GPU CUDA packages on a CPU-only cloud host, and `soxr`/`soundfile` were missing from `requirements.txt`.
+   - **Resolution:** Added `.dockerignore`, pinned `soxr`, `soundfile`, and `pillow` in `requirements.txt`, and passed `--extra-index-url https://download.pytorch.org/whl/cpu` in `Dockerfile`, slashing container image size by over 75%.
 
 
