@@ -11,3 +11,5 @@ services:
         value: 8000
       - key: AUDIOTAG_ENGINE
         value: onnx
+      - key: AUDIOTAG_ALLOWED_ORIGINS
+        value: "*"

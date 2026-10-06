@@ -832,10 +832,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentAudioFile) return;
 
     btnAnalyze.disabled = true;
+    let progressTimer = null;
+    let step = 0;
+    const progressSteps = [
+      "Uploading audio to neural engine...",
+      "Computing 128-band Log-Mel Spectrogram...",
+      "Running ONNX batch sliding-window inference...",
+      "Aggregating 18-instrument timeline..."
+    ];
+
     btnAnalyze.innerHTML = `
       <span style="display:inline-block; animation: spin 1s linear infinite;">·</span>
-      <span>Analyzing Acoustic Mix...</span>
+      <span id="analyzeStatusText">${progressSteps[0]}</span>
     `;
+
+    progressTimer = setInterval(() => {
+      step = (step + 1) % progressSteps.length;
+      const statusEl = document.getElementById('analyzeStatusText');
+      if (statusEl) statusEl.textContent = progressSteps[step];
+    }, 2800);
 
     const formData = new FormData();
     formData.append('file', currentAudioFile);
@@ -849,8 +864,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Inference returned HTTP ${response.status}: ${errorText}`);
+        let errorMsg = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData && errData.detail) errorMsg = errData.detail;
+        } catch (_) {
+          const text = await response.text();
+          if (text) errorMsg = text.slice(0, 200);
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
@@ -867,8 +889,14 @@ document.addEventListener('DOMContentLoaded', () => {
       resultsSection.scrollIntoView({ behavior: 'smooth' });
 
     } catch (err) {
-      alert(err.message || 'Error occurred during inference');
+      console.error("AudioTag inference error:", err);
+      let userMsg = err.message || "An error occurred during audio analysis.";
+      if (err.name === 'TypeError' || userMsg.toLowerCase().includes('failed to fetch')) {
+        userMsg = "Connection issue: Unable to reach the server. If accessing the cloud version on Render free tier, the instance may be spinning up from sleep (takes ~30-45 seconds). Please try again in a moment.";
+      }
+      alert(userMsg);
     } finally {
+      if (progressTimer) clearInterval(progressTimer);
       btnAnalyze.disabled = false;
       btnAnalyze.innerHTML = `
         <span>Analyze Track</span>

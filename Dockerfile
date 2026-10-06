@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies with CPU wheels to prevent 2.5 GB CUDA bloat on cloud containers
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 # Copy application files
 COPY . .
@@ -28,9 +28,9 @@ COPY . .
 # Expose the service port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# Health check with extended grace period for Render cold starts
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
-# Launch FastAPI via uvicorn (dynamic PORT for Render, Railway, Cloud Run)
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Launch FastAPI via uvicorn with single worker to respect 512 MB memory limit
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT} --workers 1"]

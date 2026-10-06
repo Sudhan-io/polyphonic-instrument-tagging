@@ -57,20 +57,31 @@ def merge_active_intervals(time_ranges, active_indices):
 
 
 def generate_spectrogram_image_base64(spec_2d):
-    """Generate a clean base64 PNG of the 128x128 Log-Mel Spectrogram."""
+    """Generate a clean base64 PNG of the 128x128 Log-Mel Spectrogram in ~1ms using Pillow."""
     try:
-        fig, ax = plt.subplots(figsize=(6, 3), dpi=100, facecolor="#111417")
-        ax.set_facecolor("#111417")
-        ax.imshow(spec_2d, origin="lower", aspect="auto", cmap="YlOrRd")
-        ax.axis("off")
-        plt.tight_layout(pad=0)
-
+        from PIL import Image
+        cmap = matplotlib.colormaps.get_cmap('YlOrRd')
+        # Invert row order for origin='lower' acoustic display
+        rgba = (cmap(spec_2d[::-1]) * 255).astype(np.uint8)
+        img = Image.fromarray(rgba)
+        img = img.resize((360, 180), Image.Resampling.BILINEAR)
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, facecolor="#111417")
-        plt.close(fig)
+        img.save(buf, format="PNG", optimize=True)
         return base64.b64encode(buf.getvalue()).decode("utf-8")
     except Exception:
-        return None
+        try:
+            fig, ax = plt.subplots(figsize=(6, 3), dpi=100, facecolor="#111417")
+            ax.set_facecolor("#111417")
+            ax.imshow(spec_2d, origin="lower", aspect="auto", cmap="YlOrRd")
+            ax.axis("off")
+            plt.tight_layout(pad=0)
+
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, facecolor="#111417")
+            plt.close(fig)
+            return base64.b64encode(buf.getvalue()).decode("utf-8")
+        except Exception:
+            return None
 
 
 def predict_instruments(audio_path, threshold=DEFAULT_THRESHOLD):

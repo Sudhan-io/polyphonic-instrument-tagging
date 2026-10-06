@@ -35,20 +35,30 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware — restricted to local origins only
-# For production deployment: set AUDIOTAG_ALLOWED_ORIGINS env var to your domain
+# CORS middleware — enable local development and production cloud domains
 _raw_origins = os.environ.get(
     "AUDIOTAG_ALLOWED_ORIGINS",
-    "http://localhost:8000,http://127.0.0.1:8000"
+    "*"
 )
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+if _raw_origins.strip() == "*":
+    ALLOWED_ORIGINS = ["*"]
+else:
+    ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    # Always guarantee localhost and render production domains are permitted
+    for standard_origin in (
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://polyphonic-instrument-tagging.onrender.com"
+    ):
+        if standard_origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(standard_origin)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Static & Templates setup

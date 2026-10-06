@@ -10,8 +10,18 @@ logger = logging.getLogger("audiotag.analyze")
 # 50 MB hard cap — prevents OOM attacks via enormous audio uploads
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
-# Only accept genuine audio MIME types
+# Accept genuine audio MIME types and common container representations
 ALLOWED_MIME_PREFIXES = ("audio/", "video/")
+ALLOWED_EXACT_MIMES = {
+    "application/ogg",
+    "application/x-ogg",
+    "application/flac",
+    "application/x-flac",
+    "application/octet-stream"  # Common browser fallback for audio files
+}
+SUPPORTED_EXTENSIONS = {".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".aiff"}
+
+from starlette.concurrency import run_in_threadpool
 
 try:
     from backend.app.core.inference import predict_instruments, DEFAULT_THRESHOLD
@@ -27,22 +37,31 @@ async def analyze_audio(
     threshold: float = Query(DEFAULT_THRESHOLD, ge=0.0, le=1.0)
 ):
     """
-    Analyze uploaded audio (.wav, .mp3, .ogg, .flac) and predict the presence
-    of up to 18 instruments simultaneously using AudioResNet-SE (PyTorch GPU).
+    Analyze uploaded audio (.wav, .mp3, .ogg, .flac, .m4a) and predict the presence
+    of up to 18 instruments simultaneously using AudioResNet-SE.
 
     Limits:
       - Max file size: 50 MB
-      - Accepted MIME types: audio/* or video/*
+      - Supported formats: WAV, MP3, OGG, FLAC, M4A
     """
-    # --- 1. MIME Type Guard ---
-    content_type = file.content_type or ""
-    if not any(content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES):
+    filename = file.filename or "audio.wav"
+    ext = os.path.splitext(filename)[1].lower()
+    content_type = (file.content_type or "").lower()
+
+    # --- 1. MIME & Extension Guard ---
+    is_valid_mime = any(content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES) or (content_type in ALLOWED_EXACT_MIMES)
+    is_valid_ext = ext in SUPPORTED_EXTENSIONS
+
+    if not is_valid_mime and not is_valid_ext:
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported media type: '{content_type}'. Expected audio/*, received something else."
+            detail=f"Unsupported media format. Content-Type: '{content_type}', File: '{filename}'. Expected audio (.wav, .mp3, .ogg, .flac, .m4a)."
         )
 
-    # --- 2. File Size Guard (read-once into memory, then write to temp) ---
+    if ext not in SUPPORTED_EXTENSIONS:
+        ext = ".wav"
+
+    # --- 2. File Size Guard (read into memory with size check) ---
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(
@@ -50,12 +69,13 @@ async def analyze_audio(
             detail=f"File too large ({len(content) // (1024*1024)} MB). Maximum supported upload is 50 MB."
         )
 
-    # --- 3. Extension Determination ---
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in {".wav", ".mp3", ".ogg", ".flac", ".m4a"}:
-        ext = ".wav"
+    if len(content) < 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty or corrupted (under 100 bytes)."
+        )
 
-    # --- 4. Write to Secure Temp File ---
+    # --- 3. Write to Secure Temp File ---
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
     temp_path = temp_file.name
     temp_file.close()
@@ -64,19 +84,20 @@ async def analyze_audio(
         with open(temp_path, "wb") as buf:
             buf.write(content)
 
-        logger.info("Running inference on '%s' (%d bytes, threshold=%.2f)",
-                    file.filename, len(content), threshold)
+        logger.info("Running non-blocking inference on '%s' (%d bytes, threshold=%.2f)",
+                    filename, len(content), threshold)
 
-        results = predict_instruments(temp_path, threshold=threshold)
-        results["filename"] = file.filename
+        # Offload synchronous CPU inference to threadpool to prevent blocking the async event loop
+        results = await run_in_threadpool(predict_instruments, temp_path, threshold=threshold)
+        results["filename"] = filename
 
         return results
 
     except RuntimeError as e:
-        logger.error("Model runtime error for '%s': %s", file.filename, e)
+        logger.error("Model runtime error for '%s': %s", filename, e)
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        logger.exception("Unexpected inference error for '%s'", file.filename)
+        logger.exception("Unexpected inference error for '%s'", filename)
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
     finally:
         if os.path.exists(temp_path):
