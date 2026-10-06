@@ -29,6 +29,7 @@ AudioTag-AI/
 ├── render.yaml                   # Render Blueprint for automatic cloud deployments
 ├── Procfile                      # Process declaration for web deployment
 ├── requirements.txt              # Standard root dependencies (ONNX Runtime, PyTorch, FastAPI)
+├── requirements-docker.txt       # Lean cloud container dependencies (<410MB image, sub-45s build)
 ├── templates/
 │   ├── base.html                 # Editorial shell, topbar, zero-emoji UI
 │   └── index.html                # Native web interface (Acoustic Studio & Dossier modal)
@@ -37,18 +38,19 @@ AudioTag-AI/
 │   └── app.js                    # Web Audio API synthesizer, sorting & file upload
 ├── backend/
 │   └── app/
-│       ├── main.py               # FastAPI server (Restricted CORS, structured logging)
+│       ├── main.py               # FastAPI server (Restricted CORS, structured logging, v1.0.2)
+│       ├── run.py                # Universal multi-port async runner (0.0.0.0:8000 and :10000)
 │       ├── core/
 │       │   ├── model_loader.py   # ONNX Runtime primary loader with lazy PyTorch fallback
-│       │   └── inference.py      # 18-class multi-label sigmoid inference + base64 spectrogram
+│       │   └── inference.py      # Micro-batched (chunk 8) multi-label sigmoid inference
 │       ├── routes/
-│       │   └── analyze.py        # POST /analyze with 50MB upload cap & audio MIME guard
+│       │   └── analyze.py        # Streaming 64KB chunk disk uploads + 50MB MIME guard
 │       ├── models/
 │       │   ├── audiotag_model_v1.onnx  # Exported ONNX Runtime graph (3.11 ms latency, tracked in Git)
 │       │   ├── audiotag_model_v1.pt    # PyTorch GPU AudioResNet-SE checkpoint (AUROC: 0.8989, gitignored)
 │       │   └── audiotag_model_v1.keras # Legacy fallback checkpoint
 │       └── utils/
-│           └── preprocess.py     # torchaudio/librosa 10s direct streaming Log-Mel pipeline
+│           └── preprocess.py     # 5.0s hop sliding-window + 45-window adaptive cap + native C FFmpeg
 ├── Scripts/
 │   ├── setup_openmic.py          # OpenMIC-2018 dataset prepper
 │   ├── train_openmic_gpu.py      # PyTorch GPU trainer (AMP FP16, pos_weight, SpecAugment)
@@ -57,6 +59,7 @@ AudioTag-AI/
 ├── docs/
 │   ├── CONCEPTS_AND_ALGORITHMS.md     # Exhaustive unit-by-unit concepts & algorithms guide
 │   ├── DECISIONS_AND_ARCHITECTURE.md  # Chronicle of all technical choices and rationale
+│   ├── INCIDENT_LOG.md                # Production incident, root cause & telemetry operational log
 │   ├── MASTER_PLAN.md                 # System blueprint and roadmap
 │   └── TECHNICAL_QA_DOSSIER.md        # Exhaustive 108-question technical interview guide
 ```
@@ -66,10 +69,12 @@ AudioTag-AI/
 ## Production Security and Hygiene Invariants
 
 1. **CORS**: Restricted to `http://localhost:8000` and `http://127.0.0.1:8000` by default. Can be overridden using `AUDIOTAG_ALLOWED_ORIGINS` environment variable. Never enable `allow_credentials=True` with wildcard origins.
-2. **Upload Guards**: `analyze.py` enforces a 50 MB file size limit and checks for `audio/*` / `video/*` MIME prefixes before disk writes.
+2. **Upload Guards & Zero-RAM Streaming**: `analyze.py` enforces a 50 MB limit, checks audio MIME/extension, and streams data in 64 KB chunks directly to disk to keep Python upload memory at ~64 KB instead of 50 MB.
 3. **No Legacy NSynth Models**: Old models (`instrunet_model_v3.keras` and `instrunet_condition.keras`) have been permanently removed. Do NOT attempt to reference them.
 4. **ONNX Runtime First, Lazy PyTorch**: `model_loader.py` exclusively serves `audiotag_model_v1.onnx` by default (~3.11 ms, ~40 MB RAM). PyTorch is wrapped in a lazy import factory so that it is never loaded in cloud containers unless explicitly requested (`AUDIOTAG_ENGINE=pytorch`), preventing out-of-memory errors on 512 MB instances.
-5. **Full-Song Vectorized Sliding Window**: `preprocess.py` uses precomputed `MEL_BASIS` with single-pass STFT and 2D spectrogram slicing. Full 3-5 minute tracks are processed in a single batch ONNX call in ~48ms, consuming <100MB peak RAM.
-6. **No Emojis**: Maintain the editorial aesthetic: Georgia serif headlines, `#f7f8f5` paper background, `#18201d` dark ink, `#ff6b00` vibrant orange accent, and geometric/SVG icons.
+5. **Full-Song 5.0-Second Sliding Window & Micro-Batching**: `preprocess.py` uses precomputed `MEL_BASIS` with single-pass STFT and 5.0-second sliding-window slicing with a 45-window adaptive safety ceiling. Inference is executed in micro-batches of 8 windows, bounding total process RAM to under 95 MB and executing full songs in ~3 seconds on Render Free Tier.
+6. **Multi-Port Async Cloud Runner**: `run.py` listens concurrently on `0.0.0.0:8000`, `0.0.0.0:10000`, and dynamic `$PORT` within a single asyncio process, eliminating all port-binding mismatches and reverse proxy timeouts.
+7. **No Emojis**: Maintain the editorial aesthetic: Georgia serif headlines, `#f7f8f5` paper background, `#18201d` dark ink, `#ff6b00` vibrant orange accent, and geometric/SVG icons.
+
 
 

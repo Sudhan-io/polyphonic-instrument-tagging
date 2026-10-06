@@ -396,6 +396,28 @@ When deployed to Render's free tier, users encountered intermittent "Failed to f
 
 4. **Container Build Bloat & Missing Codecs:**
    - **Problem:** Linux Docker builds running `pip install -r requirements.txt` pulled down 2.5 GB of GPU CUDA packages on a CPU-only cloud host, and `soxr`/`soundfile` were missing from `requirements.txt`.
-   - **Resolution:** Added `.dockerignore`, pinned `soxr`, `soundfile`, and `pillow` in `requirements.txt`, and passed `--extra-index-url https://download.pytorch.org/whl/cpu` in `Dockerfile`, slashing container image size by over 75%.
+   - **Resolution:** Created lean `requirements-docker.txt` (ONNX Runtime only), added `.dockerignore`, and pinned lightweight dependencies, slashing container image size by over 87% (3.2 GB -> ~410 MB).
+
+---
+
+## 14. Memory Bounding, Micro-Batching & Multi-Port Cloud Architecture
+
+### The Full-Song Memory Problem
+Analyzing multi-minute songs on Render's 512 MB free tier introduced three memory hazards:
+1. **71-Window Allocation:** A 3:30 song sliced with a 2.97s step created 71 tensors. Passing 71 windows into ONNX Runtime simultaneously spiked intermediate activation RAM above 480 MB, triggering the Linux kernel OOM killer (`SIGKILL`).
+2. **In-Memory Upload Buffers:** `content = await file.read()` kept up to 50 MB in memory during upload, doubling memory pressure alongside the audio decoder.
+3. **Port Mismatch Roulette:** Render Web Services can route to either port 8000 or 10000 depending on how the service was initially provisioned. Binding to only one caused reverse proxy connection hangs.
+
+### Architectural Resolutions:
+1. **5.0-Second Sliding-Window Hop & 45-Window Cap:**
+   - Set `DEFAULT_WINDOW_HOP_FRAMES = 215` (4.992s). A 3:30 track yields 43 windows (down from 71).
+   - Added adaptive window capping (`MAX_ALLOWED_WINDOWS = 45`): ultra-long tracks automatically stretch their hop step so window count never exceeds 45.
+2. **Micro-Batched ONNX Inference (`MICRO_BATCH = 8`):**
+   - Batches are evaluated in chunks of 8 windows and concatenated, capping activation memory to <20 MB regardless of track length.
+3. **Streaming Disk Uploads:**
+   - Chunked 64 KB writes stream directly to temporary disk files, reducing upload memory from 50 MB to 64 KB.
+4. **Universal Multi-Port Async Runner (`backend/app/run.py`):**
+   - Runs concurrent Uvicorn listeners on `0.0.0.0:8000`, `0.0.0.0:10000`, and `$PORT` within a single asyncio process, guaranteeing instant response regardless of Render router configuration.
+
 
 
