@@ -11,6 +11,8 @@
 > **Live Web Application:** [https://polyphonic-instrument-tagging.onrender.com/](https://polyphonic-instrument-tagging.onrender.com/)  
 > **Interactive API Documentation (Swagger):** [https://polyphonic-instrument-tagging.onrender.com/docs](https://polyphonic-instrument-tagging.onrender.com/docs)  
 > **Service Health Endpoint:** [https://polyphonic-instrument-tagging.onrender.com/api/health](https://polyphonic-instrument-tagging.onrender.com/api/health)  
+> **Production Incident & Operational Log:** [docs/INCIDENT_LOG.md](docs/INCIDENT_LOG.md)  
+> **Architectural Decisions & Evolution:** [docs/DECISIONS_AND_ARCHITECTURE.md](docs/DECISIONS_AND_ARCHITECTURE.md)  
 > **Core Unit Concepts & Algorithms Reference Guide:** [docs/CONCEPTS_AND_ALGORITHMS.md](docs/CONCEPTS_AND_ALGORITHMS.md)  
 > **Technical Q&A & Interview Dossier (108 Questions):** [docs/TECHNICAL_QA_DOSSIER.md](docs/TECHNICAL_QA_DOSSIER.md)
 
@@ -338,8 +340,10 @@ The repository includes a production [`Dockerfile`](Dockerfile), [`render.yaml`]
 
 ## Core Concepts & Technical Reference Guides
 
-1. **[Core Unit Concepts & Algorithms Reference Guide](docs/CONCEPTS_AND_ALGORITHMS.md)**: Exhaustive component-by-component theoretical compendium explaining what every DSP unit, neural block, loss term, optimization algorithm, and inference optimization does, why it was chosen, and alternative approaches rejected.
-2. **[Technical Q&A & Interview Dossier (108 Questions)](docs/TECHNICAL_QA_DOSSIER.md)**: 108 in-depth, rigorous technical questions and answers (each 50+ words) covering every layer of the system.
+1. **[Production Cloud Incident & Operational Log](docs/INCIDENT_LOG.md)**: Forensic engineering post-mortem chronicling all production incidents (HTTP 502 decoding timeout, async event loop starvation, CORS rejection, MIME parsing, and port mismatch) with metrics and mitigations.
+2. **[Architectural Decisions & Technical Evolution](docs/DECISIONS_AND_ARCHITECTURE.md)**: Comprehensive architectural chronicle explaining dataset evolution (NSynth to OpenMIC-2018), multi-label formulation, AudioResNet-SE, ONNX Runtime optimization, and production hardening.
+3. **[Core Unit Concepts & Algorithms Reference Guide](docs/CONCEPTS_AND_ALGORITHMS.md)**: Exhaustive component-by-component theoretical compendium explaining what every DSP unit, neural block, loss term, optimization algorithm, and inference optimization does, why it was chosen, and alternative approaches rejected.
+4. **[Technical Q&A & Interview Dossier (108 Questions)](docs/TECHNICAL_QA_DOSSIER.md)**: 108 in-depth, rigorous technical questions and answers (each 50+ words) covering every layer of the system.
 
 ### Dossier Thematic Sections:
 1. **[Problem Framing, Music Information Retrieval (MIR) & Organology](docs/TECHNICAL_QA_DOSSIER.md#section-1-problem-framing-music-information-retrieval-mir--organology)**: Multi-label vs. multi-class, overlapping frequencies, 18 Hornbostel-Sachs classes, AMT vs. source separation, synth vs. acoustic timbre. (Q1 - Q10)
